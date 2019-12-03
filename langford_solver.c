@@ -119,9 +119,9 @@ int main(void) {
 		tops[i] = &nodes[i];
 	}
 	row_node = &nodes[columns_n+1];
-	add_group_rows(range_sup+1, intervals_n*(range_sup+1), 2UL, sequence_size);
+	add_group_rows(range_sup+1, intervals_n*(range_sup+1), 2UL, sequence_size+range_sup-range_inf);
 	for (i = range_sup-1; i >= range_inf; i--) {
-		add_group_rows(i+1, intervals_n*(i+1), 1UL, sequence_size+range_sup-i);
+		add_group_rows(i+1, intervals_n*(i+1), 1UL, sequence_size+i-range_inf);
 	}
 	for (i = 0; i < columns_n; i++) {
 		link_top(&nodes[i], tops[i]);
@@ -154,10 +154,10 @@ int main(void) {
 		}
 		row_node = &nodes[columns_n+1];
 		if (range_sup > range_inf) {
-			add_group_row(range_sup+1, range_sup_rows_n/2, sequence_size);
-			add_group_half_rows(range_sup, intervals_n*range_sup, sequence_size+1);
+			add_group_row(range_sup+1, range_sup_rows_n/2, sequence_size+range_sup-range_inf);
+			add_group_half_rows(range_sup, intervals_n*range_sup, sequence_size+range_sup-1-range_inf);
 			for (i = range_sup-2; i >= range_inf; i--) {
-				add_group_rows(i+1, intervals_n*(i+1), 1UL, sequence_size+range_sup-i);
+				add_group_rows(i+1, intervals_n*(i+1), 1UL, sequence_size+i-range_inf);
 			}
 		}
 		for (i = 0; i < columns_n; i++) {

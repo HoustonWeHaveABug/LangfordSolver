@@ -101,36 +101,6 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 	range_sup_rows_n = get_group_rows(intervals_n*(range_sup+1UL));
-	rows_n = range_sup_rows_n/2UL;
-	for (i = range_sup-1UL; i >= range_inf; i--) {
-		rows_n += get_group_rows(intervals_n*(i+1UL));
-	}
-	nodes = malloc(sizeof(node_t)*(columns_n+1UL+rows_n*(order+1UL)));
-	if (!nodes) {
-		fprintf(stderr, "Error allocating memory for nodes\n");
-		fflush(stderr);
-		mp_free(&solutions_n);
-		mp_free(&cost);
-		free(tops);
-		free(sequence);
-		return EXIT_FAILURE;
-	}
-	header = &nodes[columns_n];
-	init_column(nodes, header);
-	for (i = 0UL; i < columns_n; i++) {
-		init_column(&nodes[i+1UL], &nodes[i]);
-		tops[i] = &nodes[i];
-	}
-	row_node = &nodes[columns_n+1UL];
-	add_group_strict_half_rows(range_sup+1UL, intervals_n*(range_sup+1UL), sequence_size+range_sup-range_inf);
-	for (i = range_sup-1UL; i >= range_inf; i--) {
-		add_group_rows(i+1UL, intervals_n*(i+1UL), sequence_size+i-range_inf);
-	}
-	for (i = 0UL; i < columns_n; i++) {
-		link_top(&nodes[i], tops[i]);
-	}
-	dlx_search();
-	free(nodes);
 	if (range_sup_rows_n%2UL == 1UL) {
 		rows_n = 1UL;
 		if (range_sup > range_inf) {
@@ -169,6 +139,36 @@ int main(void) {
 		dlx_search();
 		free(nodes);
 	}
+	rows_n = range_sup_rows_n/2UL;
+	for (i = range_sup-1UL; i >= range_inf; i--) {
+		rows_n += get_group_rows(intervals_n*(i+1UL));
+	}
+	nodes = malloc(sizeof(node_t)*(columns_n+1UL+rows_n*(order+1UL)));
+	if (!nodes) {
+		fprintf(stderr, "Error allocating memory for nodes\n");
+		fflush(stderr);
+		mp_free(&solutions_n);
+		mp_free(&cost);
+		free(tops);
+		free(sequence);
+		return EXIT_FAILURE;
+	}
+	header = &nodes[columns_n];
+	init_column(nodes, header);
+	for (i = 0UL; i < columns_n; i++) {
+		init_column(&nodes[i+1UL], &nodes[i]);
+		tops[i] = &nodes[i];
+	}
+	row_node = &nodes[columns_n+1UL];
+	add_group_strict_half_rows(range_sup+1UL, intervals_n*(range_sup+1UL), sequence_size+range_sup-range_inf);
+	for (i = range_sup-1UL; i >= range_inf; i--) {
+		add_group_rows(i+1UL, intervals_n*(i+1UL), sequence_size+i-range_inf);
+	}
+	for (i = 0UL; i < columns_n; i++) {
+		link_top(&nodes[i], tops[i]);
+	}
+	dlx_search();
+	free(nodes);
 	mp_print("Final cost", &cost);
 	mp_print("Solutions", &solutions_n);
 	fflush(stdout);

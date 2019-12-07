@@ -1,6 +1,8 @@
 # LangfordSolver
 Langford problem solver for given range and order
 
+## langford_solver
+
 The program reads the following parameters on standard input:
 - Range inferior bound (= 1 for standard problem, > 1 otherwise)
 - Range superior bound (>= Range inferior bound)
@@ -10,3 +12,7 @@ The program reads the following parameters on standard input:
 It will search for all the solutions given the problem parameters using Knuth's DLX algorithm.
 
 At the end of execution it will print the cost (size of the search tree) and the total number of solutions found.
+
+## langford_\*\_first_only.sh
+
+Shell scripts that can be used to find the first solution for each valid length of the Langford sequence, starting from the lowest.

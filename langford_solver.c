@@ -3,6 +3,8 @@
 
 #define RANGE_INF_MIN 1UL
 #define ORDER_MIN 2UL
+#define OPTION_FIRST_ONLY 1
+#define OPTION_VERBOSE 2
 #define P_VAL_MAX 1000000000UL
 #define P_DIGITS_MAX 9
 
@@ -35,8 +37,6 @@ void init_row_node(unsigned long, unsigned long, node_t *, node_t *, node_t **);
 void link_left(node_t *, node_t *);
 void link_top(node_t *, node_t *);
 void dlx_search(void);
-unsigned long set_column_value(node_t *);
-unsigned long set_row_value(node_t *);
 void cover_column(node_t *);
 void uncover_column(node_t *);
 int mp_new(mp_t *);
@@ -45,7 +45,7 @@ int mp_inc(mp_t *);
 int mp_eq_val(mp_t *, unsigned long);
 void mp_free(mp_t *);
 
-int verbose;
+int options;
 unsigned long range_inf, order, sequence_size, *sequence;
 node_t *nodes, **tops, *header, *row_node;
 mp_t cost, solutions_n;
@@ -67,8 +67,8 @@ int main(void) {
 		fflush(stderr);
 		return EXIT_FAILURE;
 	}
-	if (scanf("%d", &verbose) != 1) {
-		fprintf(stderr, "Error reading verbose flag\n");
+	if (scanf("%d", &options) != 1) {
+		fprintf(stderr, "Error reading option flags\n");
 		fflush(stderr);
 		return EXIT_FAILURE;
 	}
@@ -253,16 +253,19 @@ void link_top(node_t *node, node_t *top) {
 }
 
 void dlx_search(void) {
-	unsigned long value_max, i;
+	unsigned long i;
 	node_t *column_min, *column, *row;
 	if (!mp_inc(&cost)) {
+		return;
+	}
+	if ((options & OPTION_FIRST_ONLY) && mp_eq_val(&solutions_n, 1UL)) {
 		return;
 	}
 	if (header->right == header) {
 		if (!mp_inc(&solutions_n)) {
 			return;
 		}
-		if (mp_eq_val(&solutions_n, 1UL) || verbose) {
+		if (options & OPTION_VERBOSE) {
 			mp_print("Cost", &cost);
 			printf("%lu", sequence[0]);
 			for (i = 1UL; i < sequence_size; i++) {
@@ -274,21 +277,12 @@ void dlx_search(void) {
 		return;
 	}
 	column_min = header->right;
-	value_max = set_column_value(column_min);
 	for (column = column_min->right; column != header; column = column->right) {
 		if (column->rows_n_or_step < column_min->rows_n_or_step) {
 			if (column->rows_n_or_step == 0UL) {
 				return;
 			}
 			column_min = column;
-			value_max = set_column_value(column_min);
-		}
-		else if (column->rows_n_or_step == column_min->rows_n_or_step) {
-			unsigned long value = set_column_value(column);
-			if (value > value_max) {
-				column_min = column;
-				value_max = value;
-			}
 		}
 	}
 	cover_column(column_min);
@@ -306,24 +300,6 @@ void dlx_search(void) {
 		}
 	}
 	uncover_column(column_min);
-}
-
-unsigned long set_column_value(node_t *column) {
-	unsigned long value = 0UL;
-	node_t *row;
-	for (row = column->down; row != column; row = row->down) {
-		value += set_row_value(row);
-	}
-	return value;
-}
-
-unsigned long set_row_value(node_t *row) {
-	unsigned long value = 0UL;
-	node_t *node;
-	for (node = row->right; node != row; node = node->right) {
-		value += node->column->rows_n_or_step;
-	}
-	return value;
 }
 
 void cover_column(node_t *column) {

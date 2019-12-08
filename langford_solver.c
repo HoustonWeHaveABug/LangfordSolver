@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define RANGE_INF_MIN 1UL
 #define ORDER_MIN 2UL
-#define OPTION_FIRST_ONLY 1
-#define OPTION_VERBOSE 2
+#define RANGE_INF_MIN 1UL
+#define FLAG_FIRST_ONLY 1
+#define FLAG_VERBOSE 2
 #define P_VAL_MAX 1000000000UL
 #define P_DIGITS_MAX 9
 
@@ -45,13 +45,20 @@ int mp_inc(mp_t *);
 int mp_eq_val(mp_t *, unsigned long);
 void mp_free(mp_t *);
 
-int options;
-unsigned long range_inf, order, sequence_size, *sequence;
+int option_first_only, option_verbose;
+unsigned long order, sequence_size, *sequence;
 node_t *nodes, **tops, *header, *row_node;
 mp_t cost, solutions_n;
 
 int main(void) {
-	unsigned long range_sup, groups_n, intervals_n, columns_n, range_sup_rows_n, rows_n, i;
+	int options;
+	unsigned long intervals_n, range_inf, range_sup, groups_n, columns_n, group_sup_rows_n, rows_n, i;
+	if (scanf("%lu", &order) != 1 || order < ORDER_MIN) {
+		fprintf(stderr, "Order must be greater than or equal to %lu\n", ORDER_MIN);
+		fflush(stderr);
+		return EXIT_FAILURE;
+	}
+	intervals_n = order-1UL;
 	if (scanf("%lu", &range_inf) != 1 || range_inf < RANGE_INF_MIN) {
 		fprintf(stderr, "Range inferior bound must be greater than or equal to %lu\n", RANGE_INF_MIN);
 		fflush(stderr);
@@ -59,16 +66,6 @@ int main(void) {
 	}
 	if (scanf("%lu", &range_sup) != 1 || range_sup < range_inf) {
 		fprintf(stderr, "Range superior bound must be greater than or equal to Range inferior bound\n");
-		fflush(stderr);
-		return EXIT_FAILURE;
-	}
-	if (scanf("%lu", &order) != 1 || order < ORDER_MIN) {
-		fprintf(stderr, "Order must be greater than or equal to %lu\n", ORDER_MIN);
-		fflush(stderr);
-		return EXIT_FAILURE;
-	}
-	if (scanf("%d", &options) != 1) {
-		fprintf(stderr, "Error reading option flags\n");
 		fflush(stderr);
 		return EXIT_FAILURE;
 	}
@@ -80,7 +77,6 @@ int main(void) {
 		fflush(stderr);
 		return EXIT_FAILURE;
 	}
-	intervals_n = order-1UL;
 	columns_n = sequence_size+groups_n;
 	tops = malloc(sizeof(node_t *)*columns_n);
 	if (!tops) {
@@ -89,6 +85,15 @@ int main(void) {
 		free(sequence);
 		return EXIT_FAILURE;
 	}
+	if (scanf("%d", &options) != 1) {
+		fprintf(stderr, "Error reading option flags\n");
+		fflush(stderr);
+		free(tops);
+		free(sequence);
+		return EXIT_FAILURE;
+	}
+	option_first_only = options & FLAG_FIRST_ONLY;
+	option_verbose = options & FLAG_VERBOSE;
 	if (!mp_new(&cost)) {
 		free(tops);
 		free(sequence);
@@ -100,13 +105,13 @@ int main(void) {
 		free(sequence);
 		return EXIT_FAILURE;
 	}
-	range_sup_rows_n = get_group_rows(intervals_n*(range_sup+1UL));
-	if (range_sup_rows_n%2UL == 1UL) {
+	group_sup_rows_n = get_group_rows(intervals_n*range_sup);
+	if (group_sup_rows_n%2UL == 1UL) {
 		rows_n = 1UL;
 		if (range_sup > range_inf) {
-			rows_n += get_group_half_rows(intervals_n*range_sup);
+			rows_n += get_group_half_rows(intervals_n*(range_sup-1UL));
 			for (i = range_sup-2UL; i >= range_inf; i--) {
-				rows_n += get_group_rows(intervals_n*(i+1UL));
+				rows_n += get_group_rows(intervals_n*i);
 			}
 		}
 		nodes = malloc(sizeof(node_t)*(columns_n+1UL+rows_n*(order+1UL)));
@@ -126,11 +131,11 @@ int main(void) {
 			tops[i] = &nodes[i];
 		}
 		row_node = &nodes[columns_n+1UL];
+		add_group_row(range_sup, group_sup_rows_n/2UL, sequence_size+range_sup-range_inf);
 		if (range_sup > range_inf) {
-			add_group_row(range_sup+1UL, range_sup_rows_n/2UL, sequence_size+range_sup-range_inf);
-			add_group_half_rows(range_sup, intervals_n*range_sup, sequence_size+range_sup-1UL-range_inf);
+			add_group_half_rows(range_sup-1UL, intervals_n*(range_sup-1UL), sequence_size+range_sup-1UL-range_inf);
 			for (i = range_sup-2UL; i >= range_inf; i--) {
-				add_group_rows(i+1UL, intervals_n*(i+1UL), sequence_size+i-range_inf);
+				add_group_rows(i, intervals_n*i, sequence_size+i-range_inf);
 			}
 		}
 		for (i = 0UL; i < columns_n; i++) {
@@ -139,9 +144,9 @@ int main(void) {
 		dlx_search();
 		free(nodes);
 	}
-	rows_n = range_sup_rows_n/2UL;
+	rows_n = group_sup_rows_n/2UL;
 	for (i = range_sup-1UL; i >= range_inf; i--) {
-		rows_n += get_group_rows(intervals_n*(i+1UL));
+		rows_n += get_group_rows(intervals_n*i);
 	}
 	nodes = malloc(sizeof(node_t)*(columns_n+1UL+rows_n*(order+1UL)));
 	if (!nodes) {
@@ -160,9 +165,9 @@ int main(void) {
 		tops[i] = &nodes[i];
 	}
 	row_node = &nodes[columns_n+1UL];
-	add_group_strict_half_rows(range_sup+1UL, intervals_n*(range_sup+1UL), sequence_size+range_sup-range_inf);
+	add_group_strict_half_rows(range_sup, intervals_n*range_sup, sequence_size+range_sup-range_inf);
 	for (i = range_sup-1UL; i >= range_inf; i--) {
-		add_group_rows(i+1UL, intervals_n*(i+1UL), sequence_size+i-range_inf);
+		add_group_rows(i, intervals_n*i, sequence_size+i-range_inf);
 	}
 	for (i = 0UL; i < columns_n; i++) {
 		link_top(&nodes[i], tops[i]);
@@ -179,12 +184,12 @@ int main(void) {
 	return EXIT_SUCCESS;
 }
 
-unsigned long get_group_rows(unsigned long range_span) {
-	return range_span < sequence_size ? sequence_size-range_span:0UL;
+unsigned long get_group_rows(unsigned long group_span) {
+	return group_span < sequence_size ? sequence_size-group_span:0UL;
 }
 
-unsigned long get_group_half_rows(unsigned long range_span) {
-	return range_span < sequence_size ? (sequence_size-range_span)/2UL+(sequence_size-range_span)%2UL:0UL;
+unsigned long get_group_half_rows(unsigned long group_span) {
+	return group_span < sequence_size ? (sequence_size-group_span)/2UL+(sequence_size-group_span)%2UL:0UL;
 }
 
 void init_column(node_t *node, node_t *left) {
@@ -192,44 +197,44 @@ void init_column(node_t *node, node_t *left) {
 	link_left(node, left);
 }
 
-void add_group_strict_half_rows(unsigned long step, unsigned long range_span, unsigned long range_index) {
-	unsigned long range_rows_n = get_group_rows(range_span)/2UL, i;
-	for (i = range_rows_n; i > 0UL; i--) {
-		add_group_row(step, i-1UL, range_index);
+void add_group_strict_half_rows(unsigned long step, unsigned long group_span, unsigned long group_index) {
+	unsigned long group_rows_n = get_group_rows(group_span)/2UL, i;
+	for (i = group_rows_n; i > 0UL; i--) {
+		add_group_row(step, i-1UL, group_index);
 	}
 }
 
-void add_group_rows(unsigned long step, unsigned long range_span, unsigned long range_index) {
-	unsigned long range_rows_n = get_group_rows(range_span), range_half_rows_n = range_rows_n/2UL, i;
-	if (range_rows_n%2UL == 1UL) {
-		add_group_row(step, range_half_rows_n, range_index);
-		for (i = 1UL; i <= range_half_rows_n; i++) {
-			add_group_row(step, range_half_rows_n-i, range_index);
-			add_group_row(step, range_half_rows_n+i, range_index);
+void add_group_rows(unsigned long step, unsigned long group_span, unsigned long group_index) {
+	unsigned long group_rows_n = get_group_rows(group_span), group_half_rows_n = group_rows_n/2UL, i;
+	if (group_rows_n%2UL == 1UL) {
+		add_group_row(step, group_half_rows_n, group_index);
+		for (i = 1UL; i <= group_half_rows_n; i++) {
+			add_group_row(step, group_half_rows_n-i, group_index);
+			add_group_row(step, group_half_rows_n+i, group_index);
 		}
 	}
 	else {
-		for (i = 1UL; i <= range_half_rows_n; i++) {
-			add_group_row(step, range_half_rows_n-i, range_index);
-			add_group_row(step, range_half_rows_n+i-1UL, range_index);
+		for (i = 1UL; i <= group_half_rows_n; i++) {
+			add_group_row(step, group_half_rows_n-i, group_index);
+			add_group_row(step, group_half_rows_n+i-1UL, group_index);
 		}
 	}
 }
 
-void add_group_half_rows(unsigned long step, unsigned long range_span, unsigned long range_index) {
-	unsigned long range_rows_n = get_group_half_rows(range_span), i;
-	for (i = range_rows_n; i > 0UL; i--) {
-		add_group_row(step, i-1UL, range_index);
+void add_group_half_rows(unsigned long step, unsigned long group_span, unsigned long group_index) {
+	unsigned long group_rows_n = get_group_half_rows(group_span), i;
+	for (i = group_rows_n; i > 0UL; i--) {
+		add_group_row(step, i-1UL, group_index);
 	}
 }
 
-void add_group_row(unsigned long step, unsigned long start, unsigned long range_index) {
+void add_group_row(unsigned long step, unsigned long start, unsigned long group_index) {
 	unsigned long i;
 	init_row_node(step, start, &nodes[start], row_node+order, &tops[start]);
 	for (i = 1UL; i < order; i++) {
 		init_row_node(step, start, &nodes[start+i*step], row_node-1, &tops[start+i*step]);
 	}
-	init_row_node(step, start, &nodes[range_index], row_node-1, &tops[range_index]);
+	init_row_node(step, start, &nodes[group_index], row_node-1, &tops[group_index]);
 }
 
 void init_row_node(unsigned long step, unsigned long start, node_t *column, node_t *left, node_t **top) {
@@ -258,14 +263,14 @@ void dlx_search(void) {
 	if (!mp_inc(&cost)) {
 		return;
 	}
-	if ((options & OPTION_FIRST_ONLY) && mp_eq_val(&solutions_n, 1UL)) {
+	if (option_first_only && mp_eq_val(&solutions_n, 1UL)) {
 		return;
 	}
 	if (header->right == header) {
 		if (!mp_inc(&solutions_n)) {
 			return;
 		}
-		if (options & OPTION_VERBOSE) {
+		if (option_verbose) {
 			mp_print("Cost", &cost);
 			printf("%lu", sequence[0]);
 			for (i = 1UL; i < sequence_size; i++) {
@@ -289,7 +294,7 @@ void dlx_search(void) {
 	for (row = column_min->down; row != column_min; row = row->down) {
 		node_t *node;
 		for (i = 0UL; i < order; i++) {
-			sequence[row->start+i*row->rows_n_or_step] = row->rows_n_or_step-1UL;
+			sequence[row->start+i*row->rows_n_or_step] = row->rows_n_or_step;
 		}
 		for (node = row->right; node != row; node = node->right) {
 			cover_column(node->column);

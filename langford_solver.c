@@ -282,6 +282,9 @@ void dlx_search(void) {
 		return;
 	}
 	column_min = header->right;
+	if (column_min->rows_n_or_step == 0UL) {
+		return;
+	}
 	for (column = column_min->right; column != header; column = column->right) {
 		if (column->rows_n_or_step < column_min->rows_n_or_step) {
 			if (column->rows_n_or_step == 0UL) {

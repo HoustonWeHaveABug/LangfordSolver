@@ -52,7 +52,7 @@ mp_t cost, solutions_n;
 
 int main(void) {
 	int options;
-	unsigned long intervals_n, range_inf, range_sup, groups_n, columns_n, group_sup_rows_n, rows_n, i;
+	unsigned long intervals_n, range_inf, range_sup, groups_n, hooks_n, columns_n, group_sup_rows_n, rows_n, nodes_n, i;
 	if (scanf("%lu", &order) != 1 || order < ORDER_MIN) {
 		fprintf(stderr, "Order must be greater than or equal to %lu\n", ORDER_MIN);
 		fflush(stderr);
@@ -70,7 +70,12 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 	groups_n = range_sup-range_inf+1UL;
-	sequence_size = groups_n*order;
+	if (scanf("%lu", &hooks_n) != 1) {
+		fprintf(stderr, "Error reading number of hooks\n");
+		fflush(stderr);
+		return EXIT_FAILURE;
+	}
+	sequence_size = groups_n*order+hooks_n;
 	sequence = malloc(sizeof(unsigned long)*sequence_size);
 	if (!sequence) {
 		fprintf(stderr, "Error allocating memory for sequence\n");
@@ -114,7 +119,11 @@ int main(void) {
 				rows_n += get_group_rows(intervals_n*i);
 			}
 		}
-		nodes = malloc(sizeof(node_t)*(columns_n+1UL+rows_n*(order+1UL)));
+		nodes_n = columns_n+1UL+rows_n*(order+1UL);
+		if (hooks_n > 0UL) {
+			nodes_n += sequence_size;
+		}
+		nodes = malloc(sizeof(node_t)*nodes_n);
 		if (!nodes) {
 			fprintf(stderr, "Error allocating memory for nodes\n");
 			fflush(stderr);
@@ -124,13 +133,13 @@ int main(void) {
 			free(sequence);
 			return EXIT_FAILURE;
 		}
-		header = &nodes[columns_n];
+		header = nodes+columns_n;
 		init_column(nodes, header);
 		for (i = 0UL; i < columns_n; i++) {
-			init_column(&nodes[i+1UL], &nodes[i]);
-			tops[i] = &nodes[i];
+			init_column(nodes+i+1UL, nodes+i);
+			tops[i] = nodes+i;
 		}
-		row_node = &nodes[columns_n+1UL];
+		row_node = nodes+columns_n+1UL;
 		add_group_row(range_sup, group_sup_rows_n/2UL, sequence_size+range_sup-range_inf);
 		if (range_sup > range_inf) {
 			add_group_half_rows(range_sup-1UL, intervals_n*(range_sup-1UL), sequence_size+range_sup-1UL-range_inf);
@@ -138,8 +147,13 @@ int main(void) {
 				add_group_rows(i, intervals_n*i, sequence_size+i-range_inf);
 			}
 		}
+		if (hooks_n > 0UL) {
+			for (i = 0UL; i < sequence_size; i++) {
+				init_row_node(0UL, i, nodes+i, row_node, tops+i);
+			}
+		}
 		for (i = 0UL; i < columns_n; i++) {
-			link_top(&nodes[i], tops[i]);
+			link_top(nodes+i, tops[i]);
 		}
 		dlx_search();
 		free(nodes);
@@ -148,7 +162,11 @@ int main(void) {
 	for (i = range_sup-1UL; i >= range_inf; i--) {
 		rows_n += get_group_rows(intervals_n*i);
 	}
-	nodes = malloc(sizeof(node_t)*(columns_n+1UL+rows_n*(order+1UL)));
+	nodes_n = columns_n+1UL+rows_n*(order+1UL);
+	if (hooks_n > 0UL) {
+		nodes_n += sequence_size;
+	}
+	nodes = malloc(sizeof(node_t)*nodes_n);
 	if (!nodes) {
 		fprintf(stderr, "Error allocating memory for nodes\n");
 		fflush(stderr);
@@ -158,19 +176,24 @@ int main(void) {
 		free(sequence);
 		return EXIT_FAILURE;
 	}
-	header = &nodes[columns_n];
+	header = nodes+columns_n;
 	init_column(nodes, header);
 	for (i = 0UL; i < columns_n; i++) {
-		init_column(&nodes[i+1UL], &nodes[i]);
-		tops[i] = &nodes[i];
+		init_column(nodes+i+1UL, nodes+i);
+		tops[i] = nodes+i;
 	}
-	row_node = &nodes[columns_n+1UL];
+	row_node = nodes+columns_n+1UL;
 	add_group_strict_half_rows(range_sup, intervals_n*range_sup, sequence_size+range_sup-range_inf);
 	for (i = range_sup-1UL; i >= range_inf; i--) {
 		add_group_rows(i, intervals_n*i, sequence_size+i-range_inf);
 	}
+	if (hooks_n > 0UL) {
+		for (i = 0UL; i < sequence_size; i++) {
+			init_row_node(0UL, i, nodes+i, row_node, tops+i);
+		}
+	}
 	for (i = 0UL; i < columns_n; i++) {
-		link_top(&nodes[i], tops[i]);
+		link_top(nodes+i, tops[i]);
 	}
 	dlx_search();
 	free(nodes);
@@ -230,11 +253,11 @@ void add_group_half_rows(unsigned long step, unsigned long group_span, unsigned 
 
 void add_group_row(unsigned long step, unsigned long start, unsigned long group_index) {
 	unsigned long i;
-	init_row_node(step, start, &nodes[start], row_node+order, &tops[start]);
+	init_row_node(step, start, nodes+start, row_node+order, tops+start);
 	for (i = 1UL; i < order; i++) {
-		init_row_node(step, start, &nodes[start+i*step], row_node-1, &tops[start+i*step]);
+		init_row_node(step, start, nodes+start+i*step, row_node-1, tops+start+i*step);
 	}
-	init_row_node(step, start, &nodes[group_index], row_node-1, &tops[group_index]);
+	init_row_node(step, start, nodes+group_index, row_node-1, tops+group_index);
 }
 
 void init_row_node(unsigned long step, unsigned long start, node_t *column, node_t *left, node_t **top) {
@@ -296,8 +319,13 @@ void dlx_search(void) {
 	cover_column(column_min);
 	for (row = column_min->down; row != column_min; row = row->down) {
 		node_t *node;
-		for (i = 0UL; i < order; i++) {
-			sequence[row->start+i*row->rows_n_or_step] = row->rows_n_or_step;
+		if (row->rows_n_or_step > 0UL) {
+			for (i = 0UL; i < order; i++) {
+				sequence[row->start+i*row->rows_n_or_step] = row->rows_n_or_step;
+			}
+		}
+		else {
+			sequence[row->start] = 0UL;			
 		}
 		for (node = row->right; node != row; node = node->right) {
 			cover_column(node->column);

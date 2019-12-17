@@ -7,6 +7,7 @@ The program reads the following parameters on standard input:
 - Order (2 for pairs, 3 for triplets, etc...)
 - Range inferior bound (>= 1)
 - Range superior bound (>= Range inferior bound)
+- Number of hooks (= 0 search for perfect solutions only, > 0 otherwise)
 - Option flags (0 = search for all solutions / stay silent until end of execution, 1 = stop execution after first solution found, 2 = print current cost and sequence for each solution found, 3 = combine flags 1 and 2)
 
 Langford standard problem L(s, n) is solved using parameters (s, 2, n+1).

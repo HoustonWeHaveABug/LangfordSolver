@@ -29,6 +29,7 @@ When searching for planar solutions only, the solver will count as a solution ev
 ## Results
 
 Environment: Cygwin on Windows 7 Professional
+
 CPU: Intel i3-4150 3.50 GHz - One core used
  
 | Order | Range | Planars only / All | First only / All | Time | Output |

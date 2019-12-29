@@ -28,7 +28,18 @@ When searching for planar solutions only, the solver will count as a solution ev
 
 ## Results
 
-| Order | Range | Planars only / All | First only / All | Time | Output|
-|-------|--------------|--------------------|------------------|------|--------------------------------------------------------------------------------------------------------------|
-| 2 | 1-4 to 1-601 | All | First only | 1m05 | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_pairs_count_planars_only.sh |
-|       | 2-4 to 2-601 |
+| Order | Range | Planars only / All | First only / All | Time | Output |
+| ----- | ----- | ------------------ | ---------------- | ---- | ------ |
+| 2 | 1-4 to 1-601 | All | First only | 1m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_pairs_first_only_601.txt |
+|| 2-4 to 2-601 |||||
+| 2 | 2-20 | All | All | 156h | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_2_2_20_0_0.txt |
+| 3 | 2-20 | All | All | 4m40s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_3_2_20_0_0.txt |
+| 4 | 1-24 | All | All | 1h30m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_1_24_0_4.txt |
+| 4 | 1-25 | All | All | 6h35m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_1_25_0_4.txt |
+| 4 | 1-32 | All | First only | 3h12m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_1_32_0_6.txt |
+| 4 | 1-33 | All | First only | 7m15s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_1_33_0_6.txt |
+| 4 | 2-25 | All | All | 50m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_2_25_0_4.txt |
+| 4 | 2-32 | All | First only | 1h20m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_2_32_0_6.txt |
+| 4 | 2-33 | All | First only | 35m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_2_33_0_6.txt |
+| 3 | 1-9 to 1-407 | All | First only | 30s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_triplets_first_only_407.txt |
+|| 2-9 to 2-407 |||||

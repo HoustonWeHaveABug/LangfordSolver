@@ -51,15 +51,18 @@ void set_row_node(node_t *, choice_t *, node_t *, node_t **);
 void link_left(node_t *, node_t *);
 void link_top(node_t *, node_t *);
 void dlx_search(void);
+void assign_row_planars_only(node_t *);
 void assign_row(node_t *);
-void assign_choice(choice_t *);
+void cover_row_columns(node_t *);
 void cover_column(node_t *);
 void check_conflicts(choice_t *);
 int in_conflict(choice_t *, unsigned long, unsigned long, unsigned long);
 void cover_row(node_t *);
 void cover_node(node_t *);
-void uncover_row(node_t *);
+void assign_choice(choice_t *);
+void uncover_row_columns(node_t *);
 void uncover_column(node_t *);
+void uncover_row(node_t *);
 void uncover_node(node_t *);
 int mp_new(mp_t *);
 void mp_print(const char *, mp_t *);
@@ -190,9 +193,6 @@ int main(void) {
 		}
 		conflicts_cur = conflicts;
 	}
-	else {
-		conflicts_cur = NULL;
-	}
 	header = nodes+columns_n;
 	set_column(nodes, header);
 	for (i = 0UL; i < columns_n; i++) {
@@ -289,9 +289,6 @@ int main(void) {
 				return EXIT_FAILURE;
 			}
 			conflicts_cur = conflicts;
-		}
-		else {
-			conflicts_cur = NULL;
 		}
 		header = nodes+columns_n;
 		set_column(nodes, header);
@@ -401,12 +398,6 @@ int compare_choices(const void *a, const void *b) {
 	if (choice_a->step > choice_b->step) {
 		return -1;
 	}
-	if (choice_a->side < choice_b->side) {
-		return -1;
-	}
-	if (choice_a->side > choice_b->side) {
-		return 1;
-	}
 	return 0;
 }
 
@@ -494,63 +485,89 @@ void dlx_search(void) {
 		unsigned long half_rows_min = column_min->rows_n/2UL+column_min->rows_n%2UL;
 		node_t *middle, *top, *bottom;
 		for (i = 0UL, middle = column_min; i < half_rows_min; i++, middle = middle->bottom);
-		if (column_min->rows_n%2UL == 1UL) {
-			if (mp_eq_val(&solutions_n, 0UL)) {
-				assign_row(middle);
-			}
-			for (top = middle->top, bottom = middle->bottom; top != column_min && mp_eq_val(&solutions_n, 0UL); top = top->top, bottom = bottom->bottom) {
-				assign_row(top);
+		if (option_planars_only) {
+			if (column_min->rows_n%2UL == 1UL) {
 				if (mp_eq_val(&solutions_n, 0UL)) {
-					assign_row(bottom);
+					assign_row_planars_only(middle);
+				}
+				for (top = middle->top, bottom = middle->bottom; top != column_min && mp_eq_val(&solutions_n, 0UL); top = top->top, bottom = bottom->bottom) {
+					assign_row_planars_only(top);
+					if (mp_eq_val(&solutions_n, 0UL)) {
+						assign_row_planars_only(bottom);
+					}
+				}
+			}
+			else {
+				for (top = middle, bottom = middle->bottom; top != column_min && mp_eq_val(&solutions_n, 0UL); top = top->top, bottom = bottom->bottom) {
+					assign_row_planars_only(top);
+					if (mp_eq_val(&solutions_n, 0UL)) {
+						assign_row_planars_only(bottom);
+					}
 				}
 			}
 		}
 		else {
-			for (top = middle, bottom = middle->bottom; top != column_min && mp_eq_val(&solutions_n, 0UL); top = top->top, bottom = bottom->bottom) {
-				assign_row(top);
+			if (column_min->rows_n%2UL == 1UL) {
 				if (mp_eq_val(&solutions_n, 0UL)) {
-					assign_row(bottom);
+					assign_row(middle);
+				}
+				for (top = middle->top, bottom = middle->bottom; top != column_min && mp_eq_val(&solutions_n, 0UL); top = top->top, bottom = bottom->bottom) {
+					assign_row(top);
+					if (mp_eq_val(&solutions_n, 0UL)) {
+						assign_row(bottom);
+					}
+				}
+			}
+			else {
+				for (top = middle, bottom = middle->bottom; top != column_min && mp_eq_val(&solutions_n, 0UL); top = top->top, bottom = bottom->bottom) {
+					assign_row(top);
+					if (mp_eq_val(&solutions_n, 0UL)) {
+						assign_row(bottom);
+					}
 				}
 			}
 		}
 	}
 	else {
 		node_t *row;
-		for (row = column_min->bottom; row != column_min; row = row->bottom) {
-			assign_row(row);
+		if (option_planars_only) {
+			for (row = column_min->bottom; row != column_min; row = row->bottom) {
+				assign_row_planars_only(row);
+			}
+		}
+		else {
+			for (row = column_min->bottom; row != column_min; row = row->bottom) {
+				assign_row(row);
+			}
 		}
 	}
 	uncover_column(column_min);
 }
 
-void assign_row(node_t *row) {
-	node_t *node, **conflicts_bak = conflicts_cur;
+void assign_row_planars_only(node_t *row) {
+	node_t **conflicts_bak = conflicts_cur;
+	cover_row_columns(row);
+	check_conflicts(row->choice);
 	assign_choice(row->choice);
-	for (node = row->right; node != row; node = node->right) {
-		cover_column(node->column);
-	}
-	if (option_planars_only) {
-		check_conflicts(row->choice);
-	}
 	dlx_search();
 	while (conflicts_cur != conflicts_bak) {
 		conflicts_cur--;
 		uncover_row(*conflicts_cur);
 	}
-	for (node = row->left; node != row; node = node->left) {
-		uncover_column(node->column);
-	}
+	uncover_row_columns(row);
 }
 
-void assign_choice(choice_t *choice) {
-	if (choice->step > 0UL) {
-		unsigned long i;
-		for (i = 0UL; i < order; i++) {
-			sequence[choice->start+i*choice->step] = choice->step+range_sup*choice->side;
-		}
-	}
-	else {
-		sequence[choice->start] = 0UL;			
+void assign_row(node_t *row) {
+	cover_row_columns(row);
+	assign_choice(row->choice);
+	dlx_search();
+	uncover_row_columns(row);
+}
+
+void cover_row_columns(node_t *row) {
+	node_t *node;
+	for (node = row->right; node != row; node = node->right) {
+		cover_column(node->column);
 	}
 }
 
@@ -612,12 +629,23 @@ void cover_node(node_t *node) {
 	node->top->bottom = node->bottom;
 }
 
-void uncover_row(node_t *row) {
+void assign_choice(choice_t *choice) {
+	if (choice->step > 0UL) {
+		unsigned long i;
+		for (i = 0UL; i < order; i++) {
+			sequence[choice->start+i*choice->step] = choice->step+range_sup*choice->side;
+		}
+	}
+	else {
+		sequence[choice->start] = 0UL;
+	}
+}
+
+void uncover_row_columns(node_t *row) {
 	node_t *node;
 	for (node = row->left; node != row; node = node->left) {
-		uncover_node(node);
+		uncover_column(node->column);
 	}
-	uncover_node(row);
 }
 
 void uncover_column(node_t *column) {
@@ -630,6 +658,14 @@ void uncover_column(node_t *column) {
 	}
 	column->left->right = column;
 	column->right->left = column;
+}
+
+void uncover_row(node_t *row) {
+	node_t *node;
+	for (node = row->left; node != row; node = node->left) {
+		uncover_node(node);
+	}
+	uncover_node(row);
 }
 
 void uncover_node(node_t *node) {

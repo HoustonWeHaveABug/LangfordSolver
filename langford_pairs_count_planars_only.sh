@@ -5,5 +5,5 @@ then
 fi
 make -f langford_solver.make
 echo "Pairs count planars only $1 $2"
-echo 2 $1 $2 0 5 | ./langford_solver | grep "^[0-9]" | sed s/[ns]//g | sort -u | wc -l
+echo 2 $1 $2 0 5 | ./langford_solver | grep "^[+-]" | sed s/[+-]//g | sort -u | wc -l
 exit 0

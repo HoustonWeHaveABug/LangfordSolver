@@ -3,11 +3,11 @@
 
 #define ORDER_MIN 2UL
 #define RANGE_INF_MIN 1UL
-#define FLAG_PLANARS_ONLY 1
-#define FLAG_FIRST_ONLY 2
-#define FLAG_VERBOSE 4
-#define SIDE_NORTH '+'
-#define SIDE_SOUTH '-'
+#define SIDES_MIN 1UL
+#define FLAG_COLOMBIANS_ONLY 1
+#define FLAG_PLANARS_ONLY 2
+#define FLAG_FIRST_ONLY 4
+#define FLAG_VERBOSE 8
 #define P_VAL_MAX 1000000000UL
 #define P_DIGITS_MAX 9
 
@@ -15,13 +15,13 @@ typedef struct {
 	unsigned long step;
 	unsigned long start;
 	unsigned long end;
-	int side;
+	unsigned long side;
 }
 option_t;
 
 typedef struct {
-	int side;
 	unsigned long value;
+	unsigned long side;
 }
 number_t;
 
@@ -45,32 +45,35 @@ typedef struct {
 }
 mp_t;
 
-int dlx_run(unsigned long (*)(unsigned long, unsigned long), unsigned long (*)(unsigned long), void (*)(unsigned long, unsigned long, int), void (*)(unsigned long, int), unsigned long, unsigned long, unsigned long);
+void usage(void);
+int dlx_run(unsigned long (*)(unsigned long, unsigned long), unsigned long (*)(unsigned long), void (*)(unsigned long, unsigned long, unsigned long), void (*)(unsigned long, unsigned long), unsigned long, unsigned long, unsigned long);
 void set_column(node_t *, node_t *);
-void add_group_strict_half_options(unsigned long, unsigned long, int);
+void add_group_strict_half_options(unsigned long, unsigned long, unsigned long);
 unsigned long set_group_strict_half_options(unsigned long, unsigned long);
-void add_group_options(unsigned long, int);
+void add_group_options(unsigned long, unsigned long);
 unsigned long set_group_options(unsigned long);
-void add_group_option(unsigned long, unsigned long, int);
+void add_group_option(unsigned long, unsigned long, unsigned long);
 unsigned long set_group_option(unsigned long, unsigned long);
-void add_group_half_options(unsigned long, int);
+void add_group_half_options(unsigned long, unsigned long);
 unsigned long set_group_half_options(unsigned long);
-void set_option(option_t *, unsigned long, unsigned long, int);
+void set_option(option_t *, unsigned long, unsigned long, unsigned long);
 void add_row_nodes(option_t *);
 void set_row_node(node_t *, option_t *, node_t *, node_t **);
 void link_left(node_t *, node_t *);
 void link_top(node_t *, node_t *);
 void dlx_search(void);
 void process_rows(node_t *, void (*)(node_t *));
-void assign_row_planars_only(node_t *);
+void assign_row_with_conflicts(node_t *);
 void assign_row(node_t *);
 void cover_row_columns(node_t *);
 void cover_column(node_t *);
 void cover_conflicts(option_t *);
 int range_conflict(option_t *, unsigned long, unsigned long);
+int range_inside(option_t *, unsigned long, unsigned long);
+void cover_conflict(node_t *);
 void cover_node(node_t *);
 void assign_option(option_t *);
-void set_number(number_t *, int, unsigned long);
+void set_number(number_t *, unsigned long, unsigned long);
 void uncover_row_columns(node_t *);
 void uncover_column(node_t *);
 void uncover_row(node_t *);
@@ -82,49 +85,60 @@ int mp_inc(mp_t *);
 int mp_eq_val(mp_t *, unsigned long);
 void mp_free(mp_t *);
 
-int setting_planars_only, setting_first_only, setting_verbose;
-unsigned long order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n;
+int setting_planars_only, setting_colombians_only, setting_first_only, setting_verbose;
+unsigned long order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, sides_n;
 option_t filler, *options_cur;
 number_t *numbers;
-node_t **tops, **top_first_group, *nodes, **conflicts_cur, *column_first_group, *header, *row_node;
+node_t **tops, **top_first_group, *nodes, **conflicts_cur, *column_first_group, *column_sentinel, *header, *row_node;
 mp_t cost, solutions_n;
 
 int main(void) {
 	int settings;
 	unsigned long groups_n, group_sup_options_n;
 	if (scanf("%lu", &order) != 1 || order < ORDER_MIN) {
-		fprintf(stderr, "Order must be greater than or equal to %lu\n", ORDER_MIN);
-		fflush(stderr);
+		fprintf(stderr, "Order must be greater than or equal to %lu\n\n", ORDER_MIN);
+		usage();
 		return EXIT_FAILURE;
 	}
 	intervals_n = order-1UL;
 	if (scanf("%lu", &range_inf) != 1 || range_inf < RANGE_INF_MIN) {
-		fprintf(stderr, "Range inferior bound must be greater than or equal to %lu\n", RANGE_INF_MIN);
-		fflush(stderr);
+		fprintf(stderr, "Range inferior bound must be greater than or equal to %lu\n\n", RANGE_INF_MIN);
+		usage();
 		return EXIT_FAILURE;
 	}
 	if (scanf("%lu", &range_sup) != 1 || range_sup < range_inf) {
-		fprintf(stderr, "Range superior bound must be greater than or equal to Range inferior bound\n");
-		fflush(stderr);
+		fprintf(stderr, "Range superior bound must be greater than or equal to Range inferior bound\n\n");
+		usage();
 		return EXIT_FAILURE;
 	}
 	groups_n = range_sup-range_inf+1UL;
 	if (scanf("%lu", &hooks_n) != 1) {
-		fprintf(stderr, "Error reading number of hooks\n");
-		fflush(stderr);
+		fprintf(stderr, "Error reading number of hooks\n\n");
+		usage();
 		return EXIT_FAILURE;
 	}
 	numbers_n = groups_n*order+hooks_n;
 	columns_n = numbers_n+groups_n;
 	if (scanf("%d", &settings) != 1) {
-		fprintf(stderr, "Error reading setting flags\n");
-		fflush(stderr);
+		fprintf(stderr, "Error reading setting flags\n\n");
+		usage();
 		return EXIT_FAILURE;
 	}
+	setting_colombians_only = settings & FLAG_COLOMBIANS_ONLY;
 	setting_planars_only = settings & FLAG_PLANARS_ONLY;
 	setting_first_only = settings & FLAG_FIRST_ONLY;
 	setting_verbose = settings & FLAG_VERBOSE;
-	set_option(&filler, 0UL, numbers_n, SIDE_NORTH);
+	if (setting_colombians_only && (scanf("%lu", &sentinel) != 1 || sentinel < range_inf || sentinel > range_sup)) {
+		fprintf(stderr, "Sentinel must lie between Range inferior bound and Range superior bound\n\n");
+		usage();
+		return EXIT_FAILURE;
+	}
+	if (setting_planars_only && (scanf("%lu", &sides_n) != 1 || sides_n < 1UL)) {
+		fprintf(stderr, "Number of sides must be greater than or equal to %lu\n\n", SIDES_MIN);
+		usage();
+		return EXIT_FAILURE;
+	}
+	set_option(&filler, 0UL, numbers_n, 0UL);
 	if (setting_verbose) {
 		numbers = malloc(sizeof(number_t)*numbers_n);
 		if (!numbers) {
@@ -189,15 +203,31 @@ int main(void) {
 	return EXIT_SUCCESS;
 }
 
-int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long), unsigned long (*set_group_options_fn2)(unsigned long), void (*add_group_options_fn1)(unsigned long, unsigned long, int), void (*add_group_options_fn2)(unsigned long, int), unsigned long offset, unsigned long group_options_min, unsigned long hook_options_min) {
+void usage(void) {
+	fprintf(stderr, "Parameters read on standard input: order range_inf range_sup hooks_n settings [ sentinel ] [ sides_n ]\n\n");
+	fprintf(stderr, "order must be greater than or equal to %lu\n", ORDER_MIN);
+	fprintf(stderr, "range_inf = range inferior bound: must be greater than or equal to %lu\n", RANGE_INF_MIN);
+	fprintf(stderr, "range_sup = range superior bound: must be greater than or equal to range_inf\n");
+	fprintf(stderr, "hooks_n = number of hooks\n");
+	fprintf(stderr, "settings = sum of option settings\n");
+	fprintf(stderr, "- colombian solutions only = %d\n", FLAG_COLOMBIANS_ONLY);
+	fprintf(stderr, "- planar solutions only = %d\n", FLAG_PLANARS_ONLY);
+	fprintf(stderr, "- first solution only = %d\n", FLAG_FIRST_ONLY);
+	fprintf(stderr, "- verbose mode = %d\n", FLAG_VERBOSE);
+	fprintf(stderr, "sentinel: argument for the colombian variant\n");
+	fprintf(stderr, "sides_n = number of sides: argument for the planar variant\n");
+	fflush(stderr);
+}
+
+int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long), unsigned long (*set_group_options_fn2)(unsigned long), void (*add_group_options_fn1)(unsigned long, unsigned long, unsigned long), void (*add_group_options_fn2)(unsigned long, unsigned long), unsigned long offset, unsigned long group_options_min, unsigned long hook_options_min) {
 	unsigned long group_options_n = set_group_options_fn1(range_sup, offset), hook_options_n, nodes_n, i;
 	option_t *options;
 	node_t **conflicts;
 	if (range_sup > range_inf) {
 		if (setting_planars_only) {
-			group_options_n += set_group_options_fn2(range_sup-1UL)*2UL;
+			group_options_n += set_group_options_fn2(range_sup-1UL)*sides_n;
 			for (i = range_sup-2UL; i >= range_inf; i--) {
-				group_options_n += set_group_options(i)*2UL;
+				group_options_n += set_group_options(i)*sides_n;
 			}
 		}
 		else {
@@ -232,7 +262,7 @@ int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long)
 		free(options);
 		return 0;
 	}
-	if (setting_planars_only) {
+	if (setting_colombians_only || setting_planars_only) {
 		conflicts = malloc(sizeof(node_t *)*group_options_n);
 		if (!conflicts) {
 			fprintf(stderr, "Error allocating memory for conflicts\n");
@@ -247,6 +277,7 @@ int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long)
 		conflicts = NULL;
 	}
 	column_first_group = nodes+numbers_n;
+	column_sentinel = column_first_group+sentinel-range_inf;
 	header = nodes+columns_n;
 	set_column(nodes, header);
 	for (i = 0UL; i < columns_n; i++) {
@@ -255,16 +286,21 @@ int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long)
 	}
 	options_cur = options;
 	row_node = nodes+columns_n+1UL;
-	add_group_options_fn1(range_sup, offset, SIDE_NORTH);
+	add_group_options_fn1(range_sup, offset, 0UL);
 	if (range_sup > range_inf) {
-		add_group_options_fn2(range_sup-1UL, SIDE_NORTH);
+		add_group_options_fn2(range_sup-1UL, 0UL);
 		if (setting_planars_only) {
-			add_group_options_fn2(range_sup-1UL, SIDE_SOUTH);
+			for (i = 1UL; i < sides_n; i++) {
+				add_group_options_fn2(range_sup-1UL, i);
+			}
 		}
 		for (i = range_sup-2UL; i >= range_inf; i--) {
-			add_group_options(i, SIDE_NORTH);
+			add_group_options(i, 0UL);
 			if (setting_planars_only) {
-				add_group_options(i, SIDE_SOUTH);
+				unsigned long j;
+				for (j = 1UL; j < sides_n; j++) {
+					add_group_options(i, j);
+				}
 			}
 		}
 	}
@@ -273,7 +309,7 @@ int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long)
 		add_row_nodes(options+i);
 	}
 	for (i = 0UL; i < hook_options_n; i++) {
-		set_option(options_cur, 0UL, i, SIDE_NORTH);
+		set_option(options_cur, 0UL, i, 0UL);
 		set_row_node(nodes+i, options_cur, row_node, tops+i);
 		options_cur++;
 	}
@@ -281,7 +317,7 @@ int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long)
 		link_top(nodes+i, tops[i]);
 	}
 	dlx_search();
-	if (setting_planars_only) {
+	if (setting_colombians_only || setting_planars_only) {
 		free(conflicts);
 	}
 	free(nodes);
@@ -295,7 +331,7 @@ void set_column(node_t *column, node_t *left) {
 	link_left(column, left);
 }
 
-void add_group_strict_half_options(unsigned long step, unsigned long offset, int side) {
+void add_group_strict_half_options(unsigned long step, unsigned long offset, unsigned long side) {
 	unsigned long group_options_n = set_group_strict_half_options(step, offset), i;
 	for (i = 0UL; i < group_options_n; i++) {
 		set_option(options_cur, step, i, side);
@@ -307,7 +343,7 @@ unsigned long set_group_strict_half_options(unsigned long step, unsigned long of
 	return intervals_n*step+offset < numbers_n ? (numbers_n-intervals_n*step-offset)/2UL:0UL;
 }
 
-void add_group_options(unsigned long step, int side) {
+void add_group_options(unsigned long step, unsigned long side) {
 	unsigned long group_options_n = set_group_options(step), i;
 	for (i = 0UL; i < group_options_n; i++) {
 		set_option(options_cur, step, i, side);
@@ -319,7 +355,7 @@ unsigned long set_group_options(unsigned long step) {
 	return intervals_n*step < numbers_n ? numbers_n-intervals_n*step:0UL;
 }
 
-void add_group_option(unsigned long step, unsigned long offset, int side) {
+void add_group_option(unsigned long step, unsigned long offset, unsigned long side) {
 	unsigned long group_options_n = set_group_option(step, offset);
 	if (group_options_n > 0UL) {
 		set_option(options_cur, step, offset, side);
@@ -331,7 +367,7 @@ unsigned long set_group_option(unsigned long step, unsigned long offset) {
 	return intervals_n*step+offset < numbers_n ? 1UL:0UL;
 }
 
-void add_group_half_options(unsigned long step, int side) {
+void add_group_half_options(unsigned long step, unsigned long side) {
 	unsigned long group_options_n = set_group_half_options(step), i;
 	for (i = 0UL; i < group_options_n; i++) {
 		set_option(options_cur, step, i, side);
@@ -343,7 +379,7 @@ unsigned long set_group_half_options(unsigned long step) {
 	return intervals_n*step < numbers_n ? (numbers_n-intervals_n*step)/2UL+(numbers_n-intervals_n*step)%2UL:0UL;
 }
 
-void set_option(option_t *option, unsigned long step, unsigned long start, int side) {
+void set_option(option_t *option, unsigned long step, unsigned long start, unsigned long side) {
 	option->step = step;
 	option->start = start;
 	option->end = start+step*intervals_n;
@@ -391,9 +427,9 @@ void dlx_search(void) {
 			unsigned long i;
 			mp_print("Cost", &cost);
 			if (setting_planars_only) {
-				printf("%c%lu", numbers[0].side, numbers[0].value);
+				printf("%lu-%lu", numbers[0].value, numbers[0].side);
 				for (i = 1UL; i < numbers_n; i++) {
-					printf(" %c%lu", numbers[i].side, numbers[i].value);
+					printf(" %lu-%lu", numbers[i].value, numbers[i].side);
 				}
 			}
 			else {
@@ -420,8 +456,8 @@ void dlx_search(void) {
 		}
 	}
 	cover_column(column_min);
-	if (setting_planars_only) {
-		process_rows(column_min, assign_row_planars_only);
+	if (setting_colombians_only || setting_planars_only) {
+		process_rows(column_min, assign_row_with_conflicts);
 	}
 	else {
 		process_rows(column_min, assign_row);
@@ -462,7 +498,7 @@ void process_rows(node_t *column_min, void (*assign_row_fn)(node_t *)) {
 	}
 }
 
-void assign_row_planars_only(node_t *row) {
+void assign_row_with_conflicts(node_t *row) {
 	node_t **conflicts_bak = conflicts_cur;
 	cover_row_columns(row);
 	cover_conflicts(row->option);
@@ -508,33 +544,71 @@ void cover_conflicts(option_t *option) {
 		return;
 	}
 	inf = option->start;
-	sup = inf+option->step;
 	column_inf = nodes+inf;
-	for (column = header->right; column < column_inf; column = column->right);
-	for (i = 1UL; i < order; i++) {
-		node_t *column_sup = nodes+sup;
-		while (column < column_sup) {
-			node_t *row;
-			for (row = column->bottom; row != column; row = row->bottom) {
-				if (row->option->side == option->side && range_conflict(row->option, inf, sup)) {
-					node_t *node;
-					cover_node(row);
-					for (node = row->right; node != row; node = node->right) {
-						cover_node(node);
+	if (setting_colombians_only) {
+		sup = option->end;
+		if (option->step == sentinel) {
+			node_t *column_sup = nodes+sup;
+			for (column = header->right; column < column_inf; column = column->right);
+			while (column < column_sup) {
+				node_t *row;
+				for (row = column->bottom; row != column; row = row->bottom) {
+					if (!range_conflict(row->option, inf, sup)) {
+						cover_conflict(row);
 					}
-					*conflicts_cur = row;
-					conflicts_cur++;
 				}
+				column = column->right;
 			}
-			column = column->right;
 		}
-		inf = sup;
-		sup += option->step;
+		else if (option->step < sentinel) {
+			for (column = header->left; column != header && column > column_sentinel; column = column->left);
+			if (column == column_sentinel) {
+				node_t *row;
+				for (row = column->bottom; row != column; row = row->bottom) {
+					if (range_inside(row->option, inf, sup)) {
+						cover_conflict(row);
+					}
+				}
+				column = column->right;
+			}
+		}
+	}
+	if (setting_planars_only) {
+		sup = inf+option->step;
+		for (i = 1UL; i < order; i++) {
+			node_t *column_sup = nodes+sup;
+			for (column = header->right; column < column_inf; column = column->right);
+			while (column < column_sup) {
+				node_t *row;
+				for (row = column->bottom; row != column; row = row->bottom) {
+					if (row->option->side == option->side && range_conflict(row->option, inf, sup)) {
+						cover_conflict(row);
+					}
+				}
+				column = column->right;
+			}
+			inf = sup;
+			sup += option->step;
+		}
 	}
 }
 
 int range_conflict(option_t *option, unsigned long inf, unsigned long sup) {
 	return option->start < inf || option->end > sup;
+}
+
+int range_inside(option_t *option, unsigned long inf, unsigned long sup) {
+	return option->start < inf && option->end > sup;
+}
+
+void cover_conflict(node_t *row) {
+	node_t *node;
+	cover_node(row);
+	for (node = row->right; node != row; node = node->right) {
+		cover_node(node);
+	}
+	*conflicts_cur = row;
+	conflicts_cur++;
 }
 
 void cover_node(node_t *node) {
@@ -548,18 +622,18 @@ void assign_option(option_t *option) {
 		if (option->step > 0UL) {
 			unsigned long i;
 			for (i = 0UL; i < order; i++) {
-				set_number(numbers+option->start+i*option->step, option->side, option->step);
+				set_number(numbers+option->start+i*option->step, option->step, option->side);
 			}
 		}
 		else {
-			set_number(numbers+option->start, option->side, option->step);
+			set_number(numbers+option->start, option->step, option->side);
 		}
 	}
 }
 
-void set_number(number_t *number, int side, unsigned long value) {
-	number->side = side;
+void set_number(number_t *number, unsigned long value, unsigned long side) {
 	number->value = value;
+	number->side = side;
 }
 
 void uncover_row_columns(node_t *row) {
@@ -609,7 +683,13 @@ int compare_options(const void *a, const void *b) {
 	if (option_a->step > option_b->step) {
 		return -1;
 	}
-	return option_a->side-option_b->side;
+	if (option_a->side < option_b->side) {
+		return -1;
+	}
+	if (option_a->side > option_b->side) {
+		return 1;
+	}
+	return 0;
 }
 
 int mp_new(mp_t *mp) {

@@ -128,15 +128,25 @@ int main(void) {
 	setting_planars_only = settings & FLAG_PLANARS_ONLY;
 	setting_first_only = settings & FLAG_FIRST_ONLY;
 	setting_verbose = settings & FLAG_VERBOSE;
-	if (setting_colombians_only && (scanf("%lu", &sentinel) != 1 || sentinel < range_inf || sentinel > range_sup)) {
-		fprintf(stderr, "Sentinel must lie between Range inferior bound and Range superior bound\n\n");
-		usage();
-		return EXIT_FAILURE;
+	if (setting_colombians_only) {
+		if (scanf("%lu", &sentinel) != 1 || sentinel < range_inf || sentinel > range_sup) {
+			fprintf(stderr, "Sentinel must lie between Range inferior bound and Range superior bound\n\n");
+			usage();
+			return EXIT_FAILURE;
+		}
 	}
-	if (setting_planars_only && (scanf("%lu", &sides_n) != 1 || sides_n < 1UL)) {
-		fprintf(stderr, "Number of sides must be greater than or equal to %lu\n\n", SIDES_MIN);
-		usage();
-		return EXIT_FAILURE;
+	else {
+		sentinel = range_inf;
+	}
+	if (setting_planars_only) {
+		if (scanf("%lu", &sides_n) != 1 || sides_n < SIDES_MIN) {
+			fprintf(stderr, "Number of sides must be greater than or equal to %lu\n\n", SIDES_MIN);
+			usage();
+			return EXIT_FAILURE;
+		}
+	}
+	else {
+		sides_n = SIDES_MIN;
 	}
 	set_option(&filler, 0UL, numbers_n, 0UL);
 	if (setting_verbose) {
@@ -224,17 +234,9 @@ int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long)
 	option_t *options;
 	node_t **conflicts;
 	if (range_sup > range_inf) {
-		if (setting_planars_only) {
-			group_options_n += set_group_options_fn2(range_sup-1UL)*sides_n;
-			for (i = range_sup-2UL; i >= range_inf; i--) {
-				group_options_n += set_group_options(i)*sides_n;
-			}
-		}
-		else {
-			group_options_n += set_group_options_fn2(range_sup-1UL);
-			for (i = range_sup-2UL; i >= range_inf; i--) {
-				group_options_n += set_group_options(i);
-			}
+		group_options_n += set_group_options_fn2(range_sup-1UL)*sides_n;
+		for (i = range_sup-2UL; i >= range_inf; i--) {
+			group_options_n += set_group_options(i)*sides_n;
 		}
 	}
 	if (hooks_n > 0UL) {
@@ -288,19 +290,13 @@ int dlx_run(unsigned long (*set_group_options_fn1)(unsigned long, unsigned long)
 	row_node = nodes+columns_n+1UL;
 	add_group_options_fn1(range_sup, offset, 0UL);
 	if (range_sup > range_inf) {
-		add_group_options_fn2(range_sup-1UL, 0UL);
-		if (setting_planars_only) {
-			for (i = 1UL; i < sides_n; i++) {
-				add_group_options_fn2(range_sup-1UL, i);
-			}
+		for (i = 0UL; i < sides_n; i++) {
+			add_group_options_fn2(range_sup-1UL, i);
 		}
 		for (i = range_sup-2UL; i >= range_inf; i--) {
-			add_group_options(i, 0UL);
-			if (setting_planars_only) {
-				unsigned long j;
-				for (j = 1UL; j < sides_n; j++) {
-					add_group_options(i, j);
-				}
+			unsigned long j;
+			for (j = 0UL; j < sides_n; j++) {
+				add_group_options(i, j);
 			}
 		}
 	}

@@ -3,7 +3,7 @@ Generalized Langford problem solver for given range and order
 
 ## langford_solver
 
-Parameters read on standard input: order range_inf range_sup hooks_n settings \[ sentinel \] \[ sides_n \]
+Parameters read on standard input: order range_inf range_sup hooks_n settings \[ sentinel \] \[ dimensions_n \]
 
 - order (2 for pairs, 3 for triplets, etc...)
 - range_inf: range inferior bound (>= 1)
@@ -11,7 +11,7 @@ Parameters read on standard input: order range_inf range_sup hooks_n settings \[
 - hooks_n: number of hooks (= 0 search for perfect solutions only, > 0 otherwise)
 - settings = sum of option settings (colombian solutions only = 1, planar solutions only = 2, first solution only = 4, verbose mode = 8)
 - sentinel: argument for the colombian variant
-- sides_n: number of sides, argument for the planar variant
+- dimensions_n: number of dimensions, argument for the planar variant
 
 Langford standard problem L(s, n) is solved using parameters (s, 2, n+1, 0, 0).
 
@@ -24,10 +24,6 @@ At the end of execution it will print the final cost (size of the search tree) a
 ## langford_\*\_first_only.sh
 
 Shell scripts that can be used to find the first solution for each valid length of the Langford sequence, starting from the lowest until a given superior bound.
-
-## langford_pairs_count_planars_only.sh
-
-When searching for planar solutions only, the solver will count as a solution every possible ways to link the numbers inside a group. This shell script encapsulates the solver to remove duplicate solutions and gives the expected count for P(s, n) and variants.
 
 ## Results
 

@@ -1,2 +1,3 @@
+Order 2, Range [2-20].
 Final cost 4410,325852195
 Solutions 256,814891280

@@ -294,7 +294,7 @@ int main(void) {
 }
 
 void usage(void) {
-	fprintf(stderr, "Parameters read on standard input: order range_inf range_sup hooks_n settings [ sentinel ] [ dimensions_n ]\n\n");
+	fprintf(stderr, "Parameters read on standard input: order range_inf range_sup [ hooks_n ] [ settings ] [ sentinel ] [ dimensions_n ]\n\n");
 	fprintf(stderr, "order must be greater than or equal to %lu\n", ORDER_MIN);
 	fprintf(stderr, "range_inf = range inferior bound: must be greater than or equal to %lu\n", RANGE_INF_MIN);
 	fprintf(stderr, "range_sup = range superior bound: must be greater than or equal to range_inf\n");

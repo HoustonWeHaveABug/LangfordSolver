@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "mp_utils.h"
 
 #define ORDER_MIN 2UL
 #define RANGE_INF_MIN 1UL
@@ -54,12 +55,6 @@ struct node_s {
 	node_t *bottom;
 };
 
-typedef struct {
-	unsigned long m;
-	unsigned long *p;
-}
-mp_t;
-
 void usage(void);
 int dlx_run(unsigned long (*)(unsigned long, unsigned long), unsigned long (*)(unsigned long), unsigned long (*)(unsigned long), void (*)(unsigned long, unsigned long, unsigned long), void (*)(unsigned long, unsigned long), void (*)(unsigned long, unsigned long), unsigned long);
 unsigned long set_group_options_fn2_fn3(unsigned long (*)(unsigned long), unsigned long (*)(unsigned long));
@@ -109,11 +104,6 @@ void uncover_node(node_t *);
 int compare_options(const void *, const void *);
 int extend_trie(void);
 void main_free(void);
-int mp_new(mp_t *);
-void mp_print(const char *, mp_t *);
-int mp_inc(mp_t *);
-int mp_eq_val(mp_t *, unsigned long);
-void mp_free(mp_t *);
 
 int setting_planars_only, setting_colombians_only, setting_first_only, setting_circular, setting_verbose;
 unsigned long order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, dimensions_n, trie_branching, *trie, trie_size_max, trie_size;
@@ -985,57 +975,4 @@ void main_free(void) {
 		free(trie);
 		free(choices);
 	}
-}
-
-int mp_new(mp_t *mp) {
-	mp->m = 1UL;
-	mp->p = calloc(1UL, sizeof(unsigned long));
-	if (!mp->p) {
-		fprintf(stderr, "Error allocating memory for mp->p\n");
-		fflush(stderr);
-		return 0;
-	}
-	return 1;
-}
-
-void mp_print(const char *title, mp_t *mp) {
-	unsigned long i;
-	printf("%s %lu", title, mp->p[mp->m-1UL]);
-	for (i = mp->m-1UL; i > 0UL; i--) {
-		printf(",%0*lu", P_DIGITS_MAX, mp->p[i-1UL]);
-	}
-	puts("");
-}
-
-int mp_inc(mp_t *mp) {
-	int carry;
-	unsigned long i = 0UL;
-	do {
-		mp->p[i]++;
-		carry = mp->p[i] == P_VAL_MAX;
-		if (carry) {
-			mp->p[i] = 0UL;
-		}
-		i++;
-	}
-	while (i < mp->m && carry);
-	if (carry) {
-		unsigned long *p = realloc(mp->p, sizeof(unsigned long)*(mp->m+1UL));
-		if (!p) {
-			fprintf(stderr, "Error reallocating memory for mp->p\n");
-			fflush(stderr);
-			return 0;
-		}
-		mp->p = p;
-		mp->p[mp->m++] = 1UL;
-	}
-	return 1;
-}
-
-int mp_eq_val(mp_t *mp, unsigned long val) {
-	return mp->m == 1UL && mp->p[0] == val;
-}
-
-void mp_free(mp_t *mp) {
-	free(mp->p);
 }

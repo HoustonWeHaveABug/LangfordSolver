@@ -1,3 +1,4 @@
 Order 3, Range [2-20].
+Runtime 302s
 Final cost 978690469
 Solutions 249280

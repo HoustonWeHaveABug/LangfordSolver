@@ -1,0 +1,4 @@
+Order 2, Range [2-24], Colombians only (sentinel 23).
+Runtime 514461s
+Final cost 1613,741470936
+Solutions 7235244

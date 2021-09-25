@@ -1,0 +1,41 @@
+make: 'langford_solver' is up to date.
+Order 2, Range [2-4], Colombians only (sentinel 3).
+Runtime 0s
+Final cost 4
+Solutions 1
+Order 2, Range [2-5], Colombians only (sentinel 4).
+Runtime 0s
+Final cost 10
+Solutions 1
+Order 2, Range [2-8], Colombians only (sentinel 7).
+Runtime 0s
+Final cost 167
+Solutions 3
+Order 2, Range [2-9], Colombians only (sentinel 8).
+Runtime 0s
+Final cost 507
+Solutions 10
+Order 2, Range [2-12], Colombians only (sentinel 11).
+Runtime 0s
+Final cost 20764
+Solutions 76
+Order 2, Range [2-13], Colombians only (sentinel 12).
+Runtime 0s
+Final cost 71783
+Solutions 140
+Order 2, Range [2-16], Colombians only (sentinel 15).
+Runtime 2s
+Final cost 4821196
+Solutions 2478
+Order 2, Range [2-17], Colombians only (sentinel 16).
+Runtime 5s
+Final cost 19840335
+Solutions 5454
+Order 2, Range [2-20], Colombians only (sentinel 19).
+Runtime 647s
+Final cost 2,060440049
+Solutions 105704
+Order 2, Range [2-21], Colombians only (sentinel 20).
+Runtime 3183s
+Final cost 9,988026545
+Solutions 267312

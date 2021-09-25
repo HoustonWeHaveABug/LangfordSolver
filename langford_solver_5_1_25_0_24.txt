@@ -1,0 +1,4 @@
+Order 5, Range [1-25], Circular, Verbose.
+Runtime 11478944s
+Final cost 6004,319993921
+Solutions 0

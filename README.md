@@ -25,24 +25,8 @@ At the end of execution it will print the final cost (size of the search tree) a
 
 Shell scripts that can be used to run the solver for each valid length of the Langford sequence, starting from the lowest until a given superior bound.
 
-## Results
+## Results (langford_\*\.txt files)
 
-Environment: Cygwin on Windows 7 Professional
+Environment: Linux 5.4.12-arch1-1
 
-CPU: Intel i3-4150 3.50 GHz - One core used
- 
-| Order | Range | Planars only / All | First only / All | Time | Output |
-| ----- | ----- | ------------------ | ---------------- | ---- | ------ |
-| 2 | 1-4 to 1-601 | All | First only | 30s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_pairs_1_601_20.txt |
-| 2 | 2-4 to 2-601 | All | First only | 30s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_pairs_2_601_20.txt |
-| 2 | 2-20 | All | All | 156h | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_2_2_20_0_0.txt |
-| 3 | 2-20 | All | All | 4m40s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_3_2_20_0_0.txt |
-| 4 | 1-24 | All | All | 1h30m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_1_24_0_16.txt |
-| 4 | 1-25 | All | All | 6h35m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_1_25_0_16.txt |
-| 4 | 1-32 | All | First only | 2h50m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_1_32_0_20.txt |
-| 4 | 1-33 | All | First only | 7m15s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_1_33_0_20.txt |
-| 4 | 2-25 | All | All | 50m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_2_25_0_16.txt |
-| 4 | 2-32 | All | First only | 1h30m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_2_32_0_20.txt |
-| 4 | 2-33 | All | First only | 35m | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_solver_4_2_33_0_20.txt |
-| 3 | 1-9 to 1-407 | All | First only | 15s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_triplets_1_407_20.txt |
-| 3 | 2-9 to 2-407 | All | First only | 15s | https://github.com/HoustonWeHaveABug/LangfordSolver/blob/master/langford_triplets_2_407_20.txt |
+CPU: Intel Core i5-4430 3.0 GHz - One core used

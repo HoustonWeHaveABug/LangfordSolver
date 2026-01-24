@@ -1,14 +1,11 @@
-LANGFORD_SOLVER_C_FLAGS=-c -O2 -Wall -Wextra -Waggregate-return -Wcast-align -Wcast-qual -Wconversion -Wformat=2 -Winline -Wlong-long -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Wno-import -Wpointer-arith -Wredundant-decls -Wshadow -Wstrict-prototypes -Wwrite-strings
-LANGFORD_SOLVER_OBJS=langford_solver.o mp_utils.o
+LANGFORD_SOLVER_C_FLAGS=-c -fPIE -fsanitize=bounds -fsanitize-undefined-trap-on-error -fstack-clash-protection -fstack-protector-strong -O2 -std=c89 -Waggregate-return -Wall -Walloca -Warith-conversion -Warray-bounds=2 -Wbad-function-cast -Wcast-align=strict -Wcast-qual -Wconversion -Wduplicated-branches -Wduplicated-cond -Werror -Wextra -Wfloat-equal -Wformat=2 -Wformat-overflow=2 -Wformat-security -Wformat-signedness -Wformat-truncation=2 -Wimplicit-fallthrough=3 -Winline -Wl,-z,noexecstack -Wl,-z,now -Wl,-z,relro -Wl,-z,separate-code -Wlogical-op -Wlong-long -Wmissing-declarations -Wmissing-prototypes -Wnested-externs -Wnull-dereference -Wold-style-definition -Wpedantic -Wpointer-arith -Wredundant-decls -Wshadow -Wshift-overflow=2 -Wstack-protector -Wstack-usage=1000000 -Wstrict-overflow=4 -Wstrict-prototypes -Wstringop-overflow=4 -Wswitch-default -Wswitch-enum -Wtraditional-conversion -Wtrampolines -Wundef -Wvla -Wwrite-strings
+LANGFORD_SOLVER_OBJS=langford_solver.o
 
 langford_solver: ${LANGFORD_SOLVER_OBJS}
 	gcc -o langford_solver ${LANGFORD_SOLVER_OBJS}
 
 langford_solver.o: langford_solver.c langford_solver.make
 	gcc ${LANGFORD_SOLVER_C_FLAGS} -o langford_solver.o langford_solver.c
-
-mp_utils.o: mp_utils.h mp_utils.c langford_solver.make
-	gcc ${LANGFORD_SOLVER_C_FLAGS} -o mp_utils.o mp_utils.c
 
 clean:
 	rm -f langford_solver ${LANGFORD_SOLVER_OBJS}

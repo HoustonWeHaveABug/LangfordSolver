@@ -61,7 +61,6 @@ static void mp_print(const char *, unsigned []);
 static unsigned set_group_options_fn2_fn3(unsigned (*)(unsigned), unsigned (*)(unsigned));
 static void set_column(node_t *, node_t *);
 static void add_group_options_fn2_fn3(void (*)(unsigned, unsigned), void (*)(unsigned, unsigned));
-static void add_group_circular_option(unsigned, unsigned, unsigned);
 static void add_group_half_circular_options(unsigned, unsigned);
 static unsigned set_group_half_circular_options(unsigned);
 static void add_group_circular_options(unsigned, unsigned);
@@ -79,7 +78,7 @@ static void set_row_node(node_t *, option_t *, node_t *, node_t **);
 static void link_left(node_t *, node_t *);
 static void link_top(node_t *, node_t *);
 static void dlx_search(void);
-static void print_solution(void);
+static void add_solution(void);
 static void print_number(number_t *);
 static void process_rows(node_t *, void (*)(node_t *));
 static void assign_row_with_conflicts(node_t *);
@@ -241,7 +240,7 @@ int main(void) {
 	time0 = (unsigned)time(NULL);
 	if (intervals_n*range_sup < numbers_n) {
 		if (setting_circular) {
-			if (!dlx_run(1U, set_group_half_circular_options, set_group_circular_options, add_group_circular_option, add_group_half_circular_options, add_group_circular_options, numbers_n-(intervals_n*range_inf+1U)/2U)) {
+			if (!dlx_run(1U, set_group_half_circular_options, set_group_circular_options, add_group_option, add_group_half_circular_options, add_group_circular_options, numbers_n-(intervals_n*range_inf+1U)/2U)) {
 				main_free();
 				return EXIT_FAILURE;
 			}
@@ -358,7 +357,7 @@ static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(
 	column_sentinel = column_first_group+sentinel-range_inf;
 	header = nodes+columns_n;
 	set_column(nodes, header);
-	for (i = 0U; i < columns_n; i++) {
+	for (i = 0U; i < columns_n; ++i) {
 		set_column(nodes+i+1U, nodes+i);
 		tops[i] = nodes+i;
 	}
@@ -375,21 +374,21 @@ static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(
 			add_group_options_fn2_fn3(add_group_options_fn2, add_group_options_fn3);
 		}
 		else if (range_inf < range_sup) {
-			for (i = 0U; i < dimensions_n; i++) {
+			for (i = 0U; i < dimensions_n; ++i) {
 				add_group_options_fn3(range_inf+1U, i);
 			}
 		}
 	}
 	qsort(options, (size_t)group_options_n, sizeof(option_t), compare_options);
-	for (i = 0U; i < group_options_n; i++) {
+	for (i = 0U; i < group_options_n; ++i) {
 		add_row_nodes(options+i);
 	}
-	for (i = 0U; i < hook_options_n; i++) {
+	for (i = 0U; i < hook_options_n; ++i) {
 		set_option(options_cur, HOOK_VAL, i, 0U);
 		set_row_node(nodes+i, options_cur, row_node, tops+i);
-		options_cur++;
+		++options_cur;
 	}
-	for (i = 0U; i < columns_n; i++) {
+	for (i = 0U; i < columns_n; ++i) {
 		link_top(nodes+i, tops[i]);
 	}
 	dlx_search();
@@ -403,7 +402,7 @@ static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(
 
 static unsigned set_group_options_fn2_fn3(unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned)) {
 	unsigned group_options_n = set_group_options_fn2(range_inf+1U)*dimensions_n, i;
-	for (i = range_inf+2U; i <= range_sup; i++) {
+	for (i = range_inf+2U; i <= range_sup; ++i) {
 		group_options_n += set_group_options_fn3(i)*dimensions_n;
 	}
 	return group_options_n;
@@ -417,20 +416,15 @@ static void set_column(node_t *column, node_t *left) {
 
 static void add_group_options_fn2_fn3(void (*add_group_options_fn2)(unsigned, unsigned), void (*add_group_options_fn3)(unsigned, unsigned)) {
 	unsigned i;
-	for (i = 0U; i < dimensions_n; i++) {
+	for (i = 0U; i < dimensions_n; ++i) {
 		add_group_options_fn2(range_inf+1U, i);
 	}
-	for (i = range_inf+2U; i <= range_sup; i++) {
+	for (i = range_inf+2U; i <= range_sup; ++i) {
 		unsigned j;
-		for (j = 0U; j < dimensions_n; j++) {
+		for (j = 0U; j < dimensions_n; ++j) {
 			add_group_options_fn3(i, j);
 		}
 	}
-}
-
-static void add_group_circular_option(unsigned step, unsigned offset, unsigned dimension) {
-	set_option(options_cur, step, offset, dimension);
-	options_cur++;
 }
 
 static void add_group_half_circular_options(unsigned step, unsigned dimension) {
@@ -451,7 +445,7 @@ static unsigned set_group_circular_options(unsigned step) {
 
 static void add_group_option(unsigned step, unsigned offset, unsigned dimension) {
 	set_option(options_cur, step, offset, dimension);
-	options_cur++;
+	++options_cur;
 }
 
 static void add_group_strict_half_options(unsigned step, unsigned offset, unsigned dimension) {
@@ -476,9 +470,9 @@ static unsigned set_group_half_options(unsigned step) {
 
 static void add_options(unsigned options_n, unsigned step, unsigned dimension) {
 	unsigned i;
-	for (i = 0U; i < options_n; i++) {
+	for (i = 0U; i < options_n; ++i) {
 		set_option(options_cur, step, i, dimension);
-		options_cur++;
+		++options_cur;
 	}
 }
 
@@ -495,7 +489,7 @@ static void add_row_nodes(option_t *option) {
 		return;
 	}
 	set_row_node(nodes+option->start, option, row_node+order, tops+option->start);
-	for (i = 1U; i < order; i++) {
+	for (i = 1U; i < order; ++i) {
 		unsigned number_pos = option->start+i*option->step;
 		if (number_pos >= numbers_n) {
 			number_pos -= numbers_n;
@@ -506,7 +500,7 @@ static void add_row_nodes(option_t *option) {
 }
 
 static void set_row_node(node_t *column, option_t *option, node_t *left, node_t **top) {
-	column->rows_n++;
+	++column->rows_n;
 	row_node->column = column;
 	row_node->option = option;
 	link_left(row_node, left);
@@ -547,18 +541,16 @@ static void dlx_search(void) {
 						}
 						trie[branch_pos] = trie_size-trie_branching;
 					}
-					unique++;
+					++unique;
 				}
 				trie_pos = trie[branch_pos];
 			}
 			if (unique) {
-				mp_inc(solutions_n);
-				print_solution();
+				add_solution();
 			}
 		}
 		else {
-			mp_inc(solutions_n);
-			print_solution();
+			add_solution();
 		}
 		return;
 	}
@@ -579,12 +571,13 @@ static void dlx_search(void) {
 	uncover_column(column_min);
 }
 
-static void print_solution(void) {
+static void add_solution(void) {
+	mp_inc(solutions_n);
 	if (setting_verbose) {
 		unsigned i;
 		mp_print("Cost", cost);
 		print_number(numbers);
-		for (i = 1U; i < numbers_n; i++) {
+		for (i = 1U; i < numbers_n; ++i) {
 			putchar(' ');
 			print_number(numbers+i);
 		}
@@ -611,7 +604,7 @@ static void process_rows(node_t *column_min, void (*assign_row_fn)(node_t *)) {
 		else {
 			unsigned half_rows_min = column_min->rows_n/2U+column_min->rows_n%2U, i;
 			node_t *middle, *top, *bottom;
-			for (i = 0U, middle = column_min; i < half_rows_min; i++, middle = middle->bottom);
+			for (i = 0U, middle = column_min; i < half_rows_min; ++i, middle = middle->bottom);
 			if (column_min->rows_n%2U == 1U) {
 				if (mp_eq_val(solutions_n, 0U)) {
 					assign_row_fn(middle);
@@ -664,20 +657,20 @@ static void assign_row_with_conflicts(node_t *row) {
 	assign_option(row->option);
 	dlx_search();
 	while (conflicts_cur != conflicts_bak) {
-		conflicts_cur--;
+		--conflicts_cur;
 		uncover_row(*conflicts_cur);
 	}
 	uncover_row_columns(row);
 	if (setting_planars_only && choices_cur > choices) {
 		choices_cur->next->last = choices_cur->last;
 		choices_cur->last->next = choices_cur->next;
-		choices_cur--;
+		--choices_cur;
 	}
 }
 
 static void chain_option(option_t *option) {
 	choice_t *choice;
-	choices_cur++;
+	++choices_cur;
 	for (choice = choices->next; choice != choices && choice->start > option->start; choice = choice->next);
 	choice->last->next = choices_cur;
 	set_choice(choices_cur, option->step, option->start, choice->last, choice);
@@ -773,7 +766,7 @@ static void cover_conflicts(option_t *option) {
 		node_t *column_inf = nodes+inf;
 		sup = inf+option->step;
 		for (column = header->right; column < column_inf; column = column->right);
-		for (i = 1U; i < order; i++) {
+		for (i = 1U; i < order; ++i) {
 			node_t *column_sup;
 			if (inf < numbers_n) {
 				if (sup < numbers_n) {
@@ -830,11 +823,11 @@ static void cover_conflict(node_t *row) {
 		cover_node(node);
 	}
 	*conflicts_cur = row;
-	conflicts_cur++;
+	++conflicts_cur;
 }
 
 static void cover_node(node_t *node) {
-	node->column->rows_n--;
+	--node->column->rows_n;
 	node->bottom->top = node->top;
 	node->top->bottom = node->bottom;
 }
@@ -843,7 +836,7 @@ static void assign_option(option_t *option) {
 	if (setting_verbose) {
 		if (option->step != HOOK_VAL) {
 			unsigned i;
-			for (i = 0U; i < order; i++) {
+			for (i = 0U; i < order; ++i) {
 				unsigned number_pos = option->start+i*option->step;
 				if (number_pos >= numbers_n) {
 					number_pos -= numbers_n;
@@ -892,7 +885,7 @@ static void uncover_row(node_t *row) {
 static void uncover_node(node_t *node) {
 	node->top->bottom = node;
 	node->bottom->top = node;
-	node->column->rows_n++;
+	++node->column->rows_n;
 }
 
 static int compare_options(const void *a, const void *b) {
@@ -928,7 +921,7 @@ static int extend_trie(void) {
 		trie_size_max += trie_branching;
 	}
 	trie_size += trie_branching;
-	for (i = trie_size-trie_branching; i < trie_size; i++) {
+	for (i = trie_size-trie_branching; i < trie_size; ++i) {
 		trie[i] = 0U;
 	}
 	return 1;

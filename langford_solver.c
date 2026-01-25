@@ -53,7 +53,7 @@ struct node_s {
 };
 
 static void usage(void);
-static int dlx_run(unsigned (*)(unsigned, unsigned), unsigned (*)(unsigned), unsigned (*)(unsigned), void (*)(unsigned, unsigned, unsigned), void (*)(unsigned, unsigned), void (*)(unsigned, unsigned), unsigned);
+static int dlx_run(unsigned, unsigned (*)(unsigned), unsigned (*)(unsigned), void (*)(unsigned, unsigned, unsigned), void (*)(unsigned, unsigned), void (*)(unsigned, unsigned), unsigned);
 static void mp_new(unsigned []);
 static void mp_inc(unsigned []);
 static int mp_eq_val(unsigned [], unsigned);
@@ -62,15 +62,12 @@ static unsigned set_group_options_fn2_fn3(unsigned (*)(unsigned), unsigned (*)(u
 static void set_column(node_t *, node_t *);
 static void add_group_options_fn2_fn3(void (*)(unsigned, unsigned), void (*)(unsigned, unsigned));
 static void add_group_circular_option(unsigned, unsigned, unsigned);
-static unsigned set_group_circular_option(unsigned, unsigned);
 static void add_group_half_circular_options(unsigned, unsigned);
 static unsigned set_group_half_circular_options(unsigned);
 static void add_group_circular_options(unsigned, unsigned);
 static unsigned set_group_circular_options(unsigned);
 static void add_group_option(unsigned, unsigned, unsigned);
-static unsigned set_group_option(unsigned, unsigned);
 static void add_group_strict_half_options(unsigned, unsigned, unsigned);
-static unsigned set_group_strict_half_options(unsigned, unsigned);
 static void add_group_all_options(unsigned, unsigned);
 static unsigned set_group_all_options(unsigned);
 static void add_group_half_options(unsigned, unsigned);
@@ -127,7 +124,7 @@ int main(void) {
 		usage();
 		return EXIT_FAILURE;
 	}
-	if (scanf("%u", &range_sup) != 1 || range_sup < range_inf) {
+	if (scanf("%u", &range_sup) != 1 || range_inf > range_sup) {
 		fprintf(stderr, "Range superior bound must be greater than or equal to Range inferior bound\n\n");
 		usage();
 		return EXIT_FAILURE;
@@ -242,17 +239,19 @@ int main(void) {
 	mp_new(cost);
 	mp_new(solutions_n);
 	time0 = (unsigned)time(NULL);
-	if (setting_circular) {
-		if (!dlx_run(set_group_circular_option, set_group_half_circular_options, set_group_circular_options, add_group_circular_option, add_group_half_circular_options, add_group_circular_options, intervals_n*range_sup < numbers_n ? numbers_n-(intervals_n*range_sup+1U)/2U:0U)) {
-			main_free();
-			return EXIT_FAILURE;
+	if (intervals_n*range_sup < numbers_n) {
+		if (setting_circular) {
+			if (!dlx_run(1U, set_group_half_circular_options, set_group_circular_options, add_group_circular_option, add_group_half_circular_options, add_group_circular_options, numbers_n-(intervals_n*range_inf+1U)/2U)) {
+				main_free();
+				return EXIT_FAILURE;
+			}
 		}
-	}
-	else {
-		unsigned group_sup_options_n = set_group_all_options(range_sup);
-		if (!dlx_run(set_group_strict_half_options, set_group_all_options, set_group_all_options, add_group_strict_half_options, add_group_all_options, add_group_all_options, 0U) || (group_sup_options_n%2U == 1U && (!setting_first_only || mp_eq_val(solutions_n, 0U)) && !dlx_run(set_group_option, set_group_half_options, set_group_all_options, add_group_option, add_group_half_options, add_group_all_options, group_sup_options_n/2U))) {
-			main_free();
-			return EXIT_FAILURE;
+		else {
+			unsigned group_inf_options_n = set_group_all_options(range_inf);
+			if (!dlx_run((numbers_n-intervals_n*range_inf)/2U, set_group_all_options, set_group_all_options, add_group_strict_half_options, add_group_all_options, add_group_all_options, 0U) || (group_inf_options_n%2U == 1U && (!setting_first_only || mp_eq_val(solutions_n, 0U)) && !dlx_run(1U, set_group_half_options, set_group_all_options, add_group_option, add_group_half_options, add_group_all_options, group_inf_options_n/2U))) {
+				main_free();
+				return EXIT_FAILURE;
+			}
 		}
 	}
 	printf("Runtime %us\n", (unsigned)time(NULL)-time0);
@@ -308,22 +307,22 @@ static void mp_print(const char *label, unsigned mp[]) {
 	fflush(stdout);
 }
 
-static int dlx_run(unsigned (*set_group_options_fn1)(unsigned, unsigned), unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned), void (*add_group_options_fn1)(unsigned, unsigned, unsigned), void (*add_group_options_fn2)(unsigned, unsigned), void (*add_group_options_fn3)(unsigned, unsigned), unsigned offset) {
-	unsigned group_options_n = set_group_options_fn1(range_sup, offset), hook_options_n, nodes_n, i;
+static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned), void (*add_group_options_fn1)(unsigned, unsigned, unsigned), void (*add_group_options_fn2)(unsigned, unsigned), void (*add_group_options_fn3)(unsigned, unsigned), unsigned offset) {
+	unsigned group_options_n = group_options_n1, hook_options_n, nodes_n, i;
 	option_t *options;
 	node_t **conflicts;
 	if (hooks_n != HOOKS_DEF) {
-		if (range_sup > range_inf) {
+		if (range_inf < range_sup) {
 			group_options_n += set_group_options_fn2_fn3(set_group_options_fn2, set_group_options_fn3);
 		}
 		hook_options_n = numbers_n;
 	}
 	else {
-		if (range_sup-1U > range_inf) {
+		if (range_inf+1U < range_sup) {
 			group_options_n += set_group_options_fn2_fn3(set_group_options_fn2, set_group_options_fn3);
 		}
-		else if (range_sup > range_inf) {
-			group_options_n += set_group_options_fn3(range_sup-1U)*dimensions_n;
+		else if (range_inf < range_sup) {
+			group_options_n += set_group_options_fn3(range_inf+1U)*dimensions_n;
 		}
 		hook_options_n = HOOKS_DEF;
 	}
@@ -365,19 +364,19 @@ static int dlx_run(unsigned (*set_group_options_fn1)(unsigned, unsigned), unsign
 	}
 	options_cur = options;
 	row_node = nodes+columns_n+1U;
-	add_group_options_fn1(range_sup, offset, 0U);
+	add_group_options_fn1(range_inf, offset, 0U);
 	if (hooks_n != HOOKS_DEF) {
-		if (range_sup > range_inf) {
+		if (range_inf < range_sup) {
 			add_group_options_fn2_fn3(add_group_options_fn2, add_group_options_fn3);
 		}
 	}
 	else {
-		if (range_sup-1U > range_inf) {
+		if (range_inf+1U < range_sup) {
 			add_group_options_fn2_fn3(add_group_options_fn2, add_group_options_fn3);
 		}
-		else if (range_sup > range_inf) {
+		else if (range_inf < range_sup) {
 			for (i = 0U; i < dimensions_n; i++) {
-				add_group_options_fn3(range_sup-1U, i);
+				add_group_options_fn3(range_inf+1U, i);
 			}
 		}
 	}
@@ -403,8 +402,8 @@ static int dlx_run(unsigned (*set_group_options_fn1)(unsigned, unsigned), unsign
 }
 
 static unsigned set_group_options_fn2_fn3(unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned)) {
-	unsigned group_options_n = set_group_options_fn2(range_sup-1U)*dimensions_n, i;
-	for (i = range_sup-2U; i >= range_inf; i--) {
+	unsigned group_options_n = set_group_options_fn2(range_inf+1U)*dimensions_n, i;
+	for (i = range_inf+2U; i <= range_sup; i++) {
 		group_options_n += set_group_options_fn3(i)*dimensions_n;
 	}
 	return group_options_n;
@@ -419,9 +418,9 @@ static void set_column(node_t *column, node_t *left) {
 static void add_group_options_fn2_fn3(void (*add_group_options_fn2)(unsigned, unsigned), void (*add_group_options_fn3)(unsigned, unsigned)) {
 	unsigned i;
 	for (i = 0U; i < dimensions_n; i++) {
-		add_group_options_fn2(range_sup-1U, i);
+		add_group_options_fn2(range_inf+1U, i);
 	}
-	for (i = range_sup-2U; i >= range_inf; i--) {
+	for (i = range_inf+2U; i <= range_sup; i++) {
 		unsigned j;
 		for (j = 0U; j < dimensions_n; j++) {
 			add_group_options_fn3(i, j);
@@ -430,14 +429,8 @@ static void add_group_options_fn2_fn3(void (*add_group_options_fn2)(unsigned, un
 }
 
 static void add_group_circular_option(unsigned step, unsigned offset, unsigned dimension) {
-	if (set_group_circular_option(step, offset) > 0U) {
-		set_option(options_cur, step, offset, dimension);
-		options_cur++;
-	}
-}
-
-static unsigned set_group_circular_option(unsigned step, unsigned offset) {
-	return intervals_n*step+offset < numbers_n+offset ? 1U:0U;
+	set_option(options_cur, step, offset, dimension);
+	options_cur++;
 }
 
 static void add_group_half_circular_options(unsigned step, unsigned dimension) {
@@ -445,7 +438,7 @@ static void add_group_half_circular_options(unsigned step, unsigned dimension) {
 }
 
 static unsigned set_group_half_circular_options(unsigned step) {
-	return intervals_n*step < numbers_n ? numbers_n/2U+numbers_n%2U:0U;
+	return (numbers_n-step*0U)/2U+(numbers_n-step*0U)%2U;
 }
 
 static void add_group_circular_options(unsigned step, unsigned dimension) {
@@ -453,26 +446,16 @@ static void add_group_circular_options(unsigned step, unsigned dimension) {
 }
 
 static unsigned set_group_circular_options(unsigned step) {
-	return intervals_n*step < numbers_n ? numbers_n:0U;
+	return numbers_n-step*0U;
 }
 
 static void add_group_option(unsigned step, unsigned offset, unsigned dimension) {
-	if (set_group_option(step, offset) > 0U) {
-		set_option(options_cur, step, offset, dimension);
-		options_cur++;
-	}
-}
-
-static unsigned set_group_option(unsigned step, unsigned offset) {
-	return intervals_n*step+offset < numbers_n ? 1U:0U;
+	set_option(options_cur, step, offset, dimension);
+	options_cur++;
 }
 
 static void add_group_strict_half_options(unsigned step, unsigned offset, unsigned dimension) {
-	add_options(set_group_strict_half_options(step, offset), step, dimension);
-}
-
-static unsigned set_group_strict_half_options(unsigned step, unsigned offset) {
-	return intervals_n*step+offset < numbers_n ? (numbers_n-intervals_n*step-offset)/2U:0U;
+	add_options((numbers_n-intervals_n*step-offset)/2U, step, dimension);
 }
 
 static void add_group_all_options(unsigned step, unsigned dimension) {
@@ -480,7 +463,7 @@ static void add_group_all_options(unsigned step, unsigned dimension) {
 }
 
 static unsigned set_group_all_options(unsigned step) {
-	return intervals_n*step < numbers_n ? numbers_n-intervals_n*step:0U;
+	return numbers_n-intervals_n*step;
 }
 
 static void add_group_half_options(unsigned step, unsigned dimension) {
@@ -488,7 +471,7 @@ static void add_group_half_options(unsigned step, unsigned dimension) {
 }
 
 static unsigned set_group_half_options(unsigned step) {
-	return intervals_n*step < numbers_n ? (numbers_n-intervals_n*step)/2U+(numbers_n-intervals_n*step)%2U:0U;
+	return (numbers_n-intervals_n*step)/2U+(numbers_n-intervals_n*step)%2U;
 }
 
 static void add_options(unsigned options_n, unsigned step, unsigned dimension) {
@@ -508,7 +491,7 @@ static void set_option(option_t *option, unsigned step, unsigned start, unsigned
 
 static void add_row_nodes(option_t *option) {
 	unsigned i;
-	if (option->step < range_sup && option->step*order == numbers_n && option->end >= numbers_n) {
+	if (option->step > range_inf && option->step*order == numbers_n && option->end >= numbers_n) {
 		return;
 	}
 	set_row_node(nodes+option->start, option, row_node+order, tops+option->start);

@@ -56,7 +56,7 @@ static void usage(void);
 static int dlx_run(unsigned, unsigned (*)(unsigned), unsigned (*)(unsigned), void (*)(unsigned), void (*)(unsigned, unsigned), void (*)(unsigned, unsigned), unsigned);
 static void mp_new(unsigned []);
 static void mp_inc(unsigned []);
-static int mp_eq_val(unsigned [], unsigned);
+static int mp_eq_zero(unsigned []);
 static void mp_print(const char *, unsigned []);
 static unsigned set_group_options_fn2_fn3(unsigned (*)(unsigned), unsigned (*)(unsigned));
 static void set_column(node_t *, node_t *);
@@ -77,14 +77,13 @@ static void add_row_nodes(option_t *);
 static void set_row_node(node_t *, option_t *, node_t *, node_t **);
 static void link_left(node_t *, node_t *);
 static void link_top(node_t *, node_t *);
-static void dlx_search(void);
+static int dlx_search(void);
 static void add_solution(void);
 static void print_number(const number_t *);
-static void process_rows(node_t *, void (*)(const node_t *));
-static void assign_row_with_conflicts(const node_t *);
+static int assign_row_with_conflicts(const node_t *);
 static void chain_option(const option_t *);
 static void set_choice(choice_t *, unsigned, unsigned, choice_t *, choice_t *);
-static void assign_row(const node_t *);
+static int assign_row(const node_t *);
 static void cover_row_columns(const node_t *);
 static void cover_column(node_t *);
 static void cover_conflicts(const option_t *);
@@ -104,7 +103,7 @@ static int compare_options(const void *, const void *);
 static int extend_trie(void);
 static void main_free(void);
 
-static int setting_planars_only, setting_colombians_only, setting_first_only, setting_circular, setting_verbose;
+static int setting_planars_only, setting_colombians_only, setting_first_only, setting_circular, setting_verbose, (*assign_row_fn)(const node_t *);
 static unsigned order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, dimensions_n, trie_branching, *trie, trie_size_max, trie_size, cost[MP_SIZE], solutions_n[MP_SIZE];
 static option_t filler, *options_cur;
 static choice_t *choices, *choices_cur;
@@ -237,19 +236,20 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 	top_first_group = tops+numbers_n;
+	assign_row_fn = setting_colombians_only || setting_planars_only ? assign_row_with_conflicts:assign_row;
 	mp_new(cost);
 	mp_new(solutions_n);
 	time0 = (unsigned)time(NULL);
 	if (intervals_n*range_sup < numbers_n) {
 		if (setting_circular) {
-			if (!dlx_run(1U, set_group_half_circular_options, set_group_circular_options, add_group_option, add_group_half_circular_options, add_group_circular_options, numbers_n-(intervals_n*range_inf+1U)/2U)) {
+			if (!dlx_run(1U, set_group_half_circular_options, set_group_circular_options, add_group_option, add_group_half_circular_options, add_group_circular_options, numbers_n-(range_inf*intervals_n+1U)/2U)) {
 				main_free();
 				return EXIT_FAILURE;
 			}
 		}
 		else {
 			unsigned group_inf_options_n = set_group_all_options(range_inf);
-			if (!dlx_run((numbers_n-intervals_n*range_inf)/2U, set_group_all_options, set_group_all_options, add_group_strict_half_options, add_group_all_options, add_group_all_options, 0U) || (group_inf_options_n%2U == 1U && (!setting_first_only || mp_eq_val(solutions_n, 0U)) && !dlx_run(1U, set_group_half_options, set_group_all_options, add_group_option, add_group_half_options, add_group_all_options, group_inf_options_n/2U))) {
+			if (!dlx_run((numbers_n-range_inf*intervals_n)/2U, set_group_all_options, set_group_all_options, add_group_strict_half_options, add_group_all_options, add_group_all_options, 0U) || (group_inf_options_n%2U == 1U && (!setting_first_only || mp_eq_zero(solutions_n)) && !dlx_run(1U, set_group_half_options, set_group_all_options, add_group_option, add_group_half_options, add_group_all_options, group_inf_options_n/2U))) {
 				main_free();
 				return EXIT_FAILURE;
 			}
@@ -295,8 +295,8 @@ static void mp_inc(unsigned mp[]) {
 	}
 }
 
-static int mp_eq_val(unsigned mp[], unsigned val) {
-	return !mp[1] && mp[0] == val;
+static int mp_eq_zero(unsigned mp[]) {
+	return !mp[1] && !mp[0];
 }
 
 static void mp_print(const char *label, unsigned mp[]) {
@@ -309,6 +309,7 @@ static void mp_print(const char *label, unsigned mp[]) {
 }
 
 static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned), void (*add_group_options_fn1)(unsigned), void (*add_group_options_fn2)(unsigned, unsigned), void (*add_group_options_fn3)(unsigned, unsigned), unsigned offset) {
+	int r;
 	unsigned group_options_n = group_options_n1, hook_options_n, nodes_n, i;
 	option_t *options;
 	node_t **conflicts;
@@ -393,13 +394,13 @@ static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(
 	for (i = 0U; i < columns_n; ++i) {
 		link_top(nodes+i, tops[i]);
 	}
-	dlx_search();
+	r = dlx_search();
 	if (setting_colombians_only || setting_planars_only) {
 		free(conflicts);
 	}
 	free(nodes);
 	free(options);
-	return 1;
+	return r;
 }
 
 static unsigned set_group_options_fn2_fn3(unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned)) {
@@ -451,7 +452,7 @@ static void add_group_option(unsigned offset) {
 }
 
 static void add_group_strict_half_options(unsigned offset) {
-	add_options((numbers_n-intervals_n*range_inf-offset)/2U, range_inf, 0U);
+	add_options((numbers_n-range_inf*intervals_n-offset)/2U, range_inf, 0U);
 }
 
 static void add_group_all_options(unsigned step, unsigned dimension) {
@@ -459,7 +460,7 @@ static void add_group_all_options(unsigned step, unsigned dimension) {
 }
 
 static unsigned set_group_all_options(unsigned step) {
-	return numbers_n-intervals_n*step;
+	return numbers_n-step*intervals_n;
 }
 
 static void add_group_half_options(unsigned step, unsigned dimension) {
@@ -467,7 +468,7 @@ static void add_group_half_options(unsigned step, unsigned dimension) {
 }
 
 static unsigned set_group_half_options(unsigned step) {
-	return (numbers_n-intervals_n*step)/2U+(numbers_n-intervals_n*step)%2U;
+	return (numbers_n-step*intervals_n)/2U+(numbers_n-step*intervals_n)%2U;
 }
 
 static void add_options(unsigned options_n, unsigned step, unsigned dimension) {
@@ -520,57 +521,82 @@ static void link_top(node_t *node, node_t *top) {
 	top->bottom = node;
 }
 
-static void dlx_search(void) {
-	node_t *column_min, *column;
+static int dlx_search(void) {
 	mp_inc(cost);
-	if (header->right == header) {
-		if (setting_planars_only) {
-			int unique = choices_cur == choices;
-			unsigned trie_pos = 0U;
-			choice_t *choice;
-			for (choice = choices->next; choice != choices; choice = choice->next) {
-				unsigned branch_pos = trie_pos;
-				if (choice->step != HOOK_VAL) {
-					branch_pos += choice->step-range_inf+1U;
+	if (header->right != header) {
+		int r;
+		node_t *column_min = header->right, *column;
+		if (!column_min->rows_n) {
+			return 1;
+		}
+		for (column = column_min->right; column != header; column = column->right) {
+			if (column->rows_n < column_min->rows_n) {
+				if (!column->rows_n) {
+					return 1;
 				}
-				if (trie[branch_pos] == 0U) {
-					if (choice->next == choices) {
-						trie[branch_pos] = trie_pos;
-					}
-					else {
-						if (!extend_trie()) {
-							return;
-						}
-						trie[branch_pos] = trie_size-trie_branching;
-					}
-					++unique;
-				}
-				trie_pos = trie[branch_pos];
+				column_min = column;
 			}
-			if (unique) {
-				add_solution();
+		}
+		r = 1;
+		cover_column(column_min);
+		if (setting_first_only) {
+			unsigned half_rows_min = column_min->rows_n/2U+column_min->rows_n%2U, i;
+			node_t *middle, *top, *bottom;
+			for (i = 0U, middle = column_min; i < half_rows_min; ++i, middle = middle->bottom);
+			if (column_min->rows_n%2U == 1U) {
+				r = assign_row_fn(middle);
+				top = middle->top;
+			}
+			else {
+				top = middle;
+			}
+			for (bottom = middle->bottom; top != column_min && r && mp_eq_zero(solutions_n); top = top->top, bottom = bottom->bottom) {
+				r = assign_row_fn(top);
+				if (r && mp_eq_zero(solutions_n)) {
+					r = assign_row_fn(bottom);
+				}
 			}
 		}
 		else {
+			node_t *row;
+			for (row = column_min->bottom; row != column_min && r; row = row->bottom) {
+				r = assign_row_fn(row);
+			}
+		}
+		uncover_column(column_min);
+		return r;
+	}
+	if (setting_planars_only) {
+		int unique = choices_cur == choices;
+		unsigned trie_pos = 0U;
+		choice_t *choice;
+		for (choice = choices->next; choice != choices; choice = choice->next) {
+			unsigned branch_pos = trie_pos;
+			if (choice->step != HOOK_VAL) {
+				branch_pos += choice->step-range_inf+1U;
+			}
+			if (!trie[branch_pos]) {
+				if (choice->next == choices) {
+					trie[branch_pos] = trie_pos;
+				}
+				else {
+					if (!extend_trie()) {
+						return 0;
+					}
+					trie[branch_pos] = trie_size-trie_branching;
+				}
+				++unique;
+			}
+			trie_pos = trie[branch_pos];
+		}
+		if (unique) {
 			add_solution();
 		}
-		return;
 	}
-	if (header->right->rows_n == 0U) {
-		return;
+	else {
+		add_solution();
 	}
-	column_min = header->right;
-	for (column = column_min->right; column != header; column = column->right) {
-		if (column->rows_n < column_min->rows_n) {
-			if (column->rows_n == 0U) {
-				return;
-			}
-			column_min = column;
-		}
-	}
-	cover_column(column_min);
-	process_rows(column_min, setting_colombians_only || setting_planars_only ? assign_row_with_conflicts:assign_row);
-	uncover_column(column_min);
+	return 1;
 }
 
 static void add_solution(void) {
@@ -595,44 +621,8 @@ static void print_number(const number_t *number) {
 	}
 }
 
-static void process_rows(node_t *column_min, void (*assign_row_fn)(const node_t *)) {
-	if (setting_first_only) {
-		if (setting_circular) {
-			node_t *row;
-			for (row = column_min->bottom; row != column_min && mp_eq_val(solutions_n, 0U); row = row->bottom) {
-				assign_row_fn(row);
-			}
-		}
-		else {
-			unsigned half_rows_min = column_min->rows_n/2U+column_min->rows_n%2U, i;
-			node_t *middle, *top, *bottom;
-			for (i = 0U, middle = column_min; i < half_rows_min; ++i, middle = middle->bottom);
-			if (column_min->rows_n%2U == 1U) {
-				if (mp_eq_val(solutions_n, 0U)) {
-					assign_row_fn(middle);
-				}
-				top = middle->top;
-			}
-			else {
-				top = middle;
-			}
-			for (bottom = middle->bottom; top != column_min && mp_eq_val(solutions_n, 0U); top = top->top, bottom = bottom->bottom) {
-				assign_row_fn(top);
-				if (mp_eq_val(solutions_n, 0U)) {
-					assign_row_fn(bottom);
-				}
-			}
-		}
-	}
-	else {
-		node_t *row;
-		for (row = column_min->bottom; row != column_min; row = row->bottom) {
-			assign_row_fn(row);
-		}
-	}
-}
-
-static void assign_row_with_conflicts(const node_t *row) {
+static int assign_row_with_conflicts(const node_t *row) {
+	int r;
 	node_t **conflicts_bak = conflicts_cur;
 	if (setting_planars_only) {
 		if (choices_cur > choices) {
@@ -645,7 +635,7 @@ static void assign_row_with_conflicts(const node_t *row) {
 			if (abs(compare_options(row->top->option, row->option)) > 1 && compare_options(row->option, row->bottom->option) == -1) {
 				trie_size = 0U;
 				if (!extend_trie()) {
-					return;
+					return 0;
 				}
 			}
 		}
@@ -653,7 +643,7 @@ static void assign_row_with_conflicts(const node_t *row) {
 	cover_row_columns(row);
 	cover_conflicts(row->option);
 	assign_option(row->option);
-	dlx_search();
+	r = dlx_search();
 	while (conflicts_cur != conflicts_bak) {
 		--conflicts_cur;
 		uncover_row(*conflicts_cur);
@@ -664,6 +654,7 @@ static void assign_row_with_conflicts(const node_t *row) {
 		choices_cur->last->next = choices_cur->next;
 		--choices_cur;
 	}
+	return r;
 }
 
 static void chain_option(const option_t *option) {
@@ -682,11 +673,12 @@ static void set_choice(choice_t *choice, unsigned step, unsigned start, choice_t
 	choice->next = next;
 }
 
-static void assign_row(const node_t *row) {
+static int assign_row(const node_t *row) {
 	cover_row_columns(row);
 	assign_option(row->option);
 	dlx_search();
 	uncover_row_columns(row);
+	return 1;
 }
 
 static void cover_row_columns(const node_t *row) {

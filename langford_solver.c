@@ -104,7 +104,7 @@ static int extend_trie(void);
 static void main_free(void);
 
 static int setting_planars_only, setting_colombians_only, setting_first_only, setting_circular, setting_verbose, (*assign_row_fn)(const node_t *);
-static unsigned order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, dimensions_n, trie_branching, *trie, trie_size_max, trie_size, cost[MP_SIZE], solutions_n[MP_SIZE];
+static unsigned order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, dimensions_n, cost[MP_SIZE], solutions_n[MP_SIZE], trie_branching, *trie, trie_size_max, trie_size;
 static option_t filler, *options_cur;
 static choice_t *choices, *choices_cur;
 static number_t *numbers;
@@ -190,68 +190,87 @@ int main(void) {
 	}
 	puts(".");
 	fflush(stdout);
-	set_option(&filler, HOOK_VAL, numbers_n, 0U);
-	if (setting_planars_only) {
-		choices = malloc(sizeof(choice_t)*(groups_n+hooks_n+1U));
-		if (!choices) {
-			fprintf(stderr, "Error allocating memory for choices\n");
-			fflush(stderr);
-			return EXIT_FAILURE;
-		}
-		set_choice(choices, HOOK_VAL, numbers_n, choices, choices);
-		choices_cur = choices;
-		trie_branching = groups_n+1U;
-		trie = malloc(sizeof(unsigned)*trie_branching);
-		if (!trie) {
-			fprintf(stderr, "Error allocating memory for trie\n");
-			fflush(stderr);
-			free(choices);
-			return EXIT_FAILURE;
-		}
-		trie_size_max = trie_branching;
-	}
-	if (setting_verbose) {
-		numbers = malloc(sizeof(number_t)*numbers_n);
-		if (!numbers) {
-			fprintf(stderr, "Error allocating memory for numbers\n");
-			fflush(stderr);
-			if (setting_planars_only) {
-				free(trie);
-				free(choices);
-			}
-			return EXIT_FAILURE;
-		}
-	}
-	tops = malloc(sizeof(node_t *)*columns_n);
-	if (!tops) {
-		fprintf(stderr, "Error allocating memory for tops\n");
-		fflush(stderr);
-		if (setting_verbose) {
-			free(numbers);
-		}
-		if (setting_planars_only) {
-			free(trie);
-			free(choices);
-		}
-		return EXIT_FAILURE;
-	}
-	top_first_group = tops+numbers_n;
-	assign_row_fn = setting_colombians_only || setting_planars_only ? assign_row_with_conflicts:assign_row;
 	mp_new(cost);
 	mp_new(solutions_n);
 	time0 = (unsigned)time(NULL);
-	if (intervals_n*range_sup < numbers_n) {
-		if (setting_circular) {
-			if (!dlx_run(1U, set_group_half_circular_options, set_group_circular_options, add_group_option, add_group_half_circular_options, add_group_circular_options, (numbers_n+(range_sup-1U)*intervals_n-1U-range_sup*intervals_n)/2U)) {
-				main_free();
-				return EXIT_FAILURE;
+	if (range_sup*intervals_n < numbers_n) {
+		unsigned p, k;
+		for (p = ORDER_MIN; p < order && order%p; ++p);
+		k = (range_sup/p-(range_inf-1U)/p)%p;
+		if (!k || hooks_n >= (p-k)*(order-1U)) {
+			unsigned j = (range_inf-1U)%p, e, i;
+			for (e = p; order%e == 0U; e *= p);
+			for (i = 0U; i < p; ++i) {
+				unsigned val = k*p+i;
+				if (j > val) {
+					val += e;
+				}
+				if (groups_n%e == val-j) {
+					break;
+				}
 			}
-		}
-		else {
-			unsigned group_sup_options_n = set_group_all_options(range_sup);
-			if (!dlx_run(group_sup_options_n/2U, set_group_all_options, set_group_all_options, add_group_strict_half_options, add_group_all_options, add_group_all_options, 0U) || (group_sup_options_n%2U == 1U && (!setting_first_only || mp_eq_zero(solutions_n)) && !dlx_run(1U, set_group_half_options, set_group_all_options, add_group_option, add_group_half_options, add_group_all_options, group_sup_options_n/2U))) {
+			if (i < p) {
+				set_option(&filler, HOOK_VAL, numbers_n, 0U);
+				if (setting_planars_only) {
+					choices = malloc(sizeof(choice_t)*(groups_n+hooks_n+1U));
+					if (!choices) {
+						fprintf(stderr, "Error allocating memory for choices\n");
+						fflush(stderr);
+						return EXIT_FAILURE;
+					}
+					set_choice(choices, HOOK_VAL, numbers_n, choices, choices);
+					choices_cur = choices;
+					trie_branching = groups_n+1U;
+					trie = malloc(sizeof(unsigned)*trie_branching);
+					if (!trie) {
+						fprintf(stderr, "Error allocating memory for trie\n");
+						fflush(stderr);
+						free(choices);
+						return EXIT_FAILURE;
+					}
+					trie_size_max = trie_branching;
+				}
+				if (setting_verbose) {
+					numbers = malloc(sizeof(number_t)*numbers_n);
+					if (!numbers) {
+						fprintf(stderr, "Error allocating memory for numbers\n");
+						fflush(stderr);
+						if (setting_planars_only) {
+							free(trie);
+							free(choices);
+						}
+						return EXIT_FAILURE;
+					}
+				}
+				tops = malloc(sizeof(node_t *)*columns_n);
+				if (!tops) {
+					fprintf(stderr, "Error allocating memory for tops\n");
+					fflush(stderr);
+					if (setting_verbose) {
+						free(numbers);
+					}
+					if (setting_planars_only) {
+						free(trie);
+						free(choices);
+					}
+					return EXIT_FAILURE;
+				}
+				top_first_group = tops+numbers_n;
+				assign_row_fn = setting_colombians_only || setting_planars_only ? assign_row_with_conflicts:assign_row;
+				if (setting_circular) {
+					if (!dlx_run(1U, set_group_half_circular_options, set_group_circular_options, add_group_option, add_group_half_circular_options, add_group_circular_options, (numbers_n+(range_sup-1U)*intervals_n-1U-range_sup*intervals_n)/2U)) {
+						main_free();
+						return EXIT_FAILURE;
+					}
+				}
+				else {
+					unsigned group_sup_options_n = set_group_all_options(range_sup);
+					if (!dlx_run(group_sup_options_n/2U, set_group_all_options, set_group_all_options, add_group_strict_half_options, add_group_all_options, add_group_all_options, 0U) || (group_sup_options_n%2U && (!setting_first_only || mp_eq_zero(solutions_n)) && !dlx_run(1U, set_group_half_options, set_group_all_options, add_group_option, add_group_half_options, add_group_all_options, group_sup_options_n/2U))) {
+						main_free();
+						return EXIT_FAILURE;
+					}
+				}
 				main_free();
-				return EXIT_FAILURE;
 			}
 		}
 	}
@@ -259,7 +278,6 @@ int main(void) {
 	mp_print("Final cost", cost);
 	mp_print("Solutions", solutions_n);
 	fflush(stdout);
-	main_free();
 	return EXIT_SUCCESS;
 }
 
@@ -281,8 +299,8 @@ static void usage(void) {
 }
 
 static void mp_new(unsigned mp[]) {
-	mp[0] = 0;
-	mp[1] = 0;
+	mp[0] = 0U;
+	mp[1] = 0U;
 }
 
 static void mp_inc(unsigned mp[]) {
@@ -290,7 +308,7 @@ static void mp_inc(unsigned mp[]) {
 		++mp[0];
 	}
 	else {
-		mp[0] = 0;
+		mp[0] = 0U;
 		++mp[1];
 	}
 }
@@ -525,7 +543,7 @@ static int dlx_search(void) {
 	mp_inc(cost);
 	if (header->right != header) {
 		int r;
-		node_t *column_min = header->right, *column;
+		node_t *column_min = header->right, *column, *bottom;
 		if (!column_min->rows_n) {
 			return 1;
 		}
@@ -541,16 +559,14 @@ static int dlx_search(void) {
 		cover_column(column_min);
 		if (setting_first_only) {
 			unsigned half_rows_min = column_min->rows_n/2U+column_min->rows_n%2U, i;
-			node_t *middle, *top, *bottom;
-			for (i = 0U, middle = column_min; i < half_rows_min; ++i, middle = middle->bottom);
-			if (column_min->rows_n%2U == 1U) {
-				r = assign_row_fn(middle);
-				top = middle->top;
+			node_t *top;
+			for (i = 1U, top = column_min->bottom; i < half_rows_min; ++i, top = top->bottom);
+			bottom = top->bottom;
+			if (column_min->rows_n%2U) {
+				r = assign_row_fn(top);
+				top = top->top;
 			}
-			else {
-				top = middle;
-			}
-			for (bottom = middle->bottom; top != column_min && r && mp_eq_zero(solutions_n); top = top->top, bottom = bottom->bottom) {
+			for (; top != column_min && r && mp_eq_zero(solutions_n); top = top->top, bottom = bottom->bottom) {
 				r = assign_row_fn(top);
 				if (r && mp_eq_zero(solutions_n)) {
 					r = assign_row_fn(bottom);
@@ -558,9 +574,8 @@ static int dlx_search(void) {
 			}
 		}
 		else {
-			node_t *row;
-			for (row = column_min->bottom; row != column_min && r; row = row->bottom) {
-				r = assign_row_fn(row);
+			for (bottom = column_min->bottom; bottom != column_min && r; bottom = bottom->bottom) {
+				r = assign_row_fn(bottom);
 			}
 		}
 		uncover_column(column_min);
@@ -629,10 +644,11 @@ static int assign_row_with_conflicts(const node_t *row) {
 			chain_option(row->option);
 		}
 		else {
-			if (compare_options(row->top->option, row->option) == -1 || compare_options(row->option, row->bottom->option) == -1) {
+			int r1 = compare_options(row->top->option, row->option), r2 = compare_options(row->option, row->bottom->option);
+			if (r1 == -1 || r2 == -1) {
 				chain_option(row->option);
 			}
-			if (abs(compare_options(row->top->option, row->option)) > 1 && compare_options(row->option, row->bottom->option) == -1) {
+			if (abs(r1) > 1 && r2 == -1) {
 				trie_size = 0U;
 				if (!extend_trie()) {
 					return 0;

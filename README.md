@@ -17,7 +17,8 @@ Langford standard problem L(s, n) is solved using parameters (s, 2, n+1, 0, 0).
 
 Nickerson variant V(s, n) is solved using parameters (s, 1, n, 0, 0).
 
-It will perform the search given the problem parameters and settings using Knuth's DLX algorithm.
+It will perform the search given the problem parameters and settings using Knuth's DLX algorithm. The necessary conditions
+for existence of sequences are performed as presented in [this paper](https://pdfs.semanticscholar.org/b999/9a360a3a1d2663149b56338a62eaa113f819.pdf).
 
 At the end of execution it will print the final cost (size of the search tree) and the total number of solutions found.
 

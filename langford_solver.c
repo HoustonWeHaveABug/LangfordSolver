@@ -108,7 +108,7 @@ static unsigned order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, co
 static option_t filler, *options_cur;
 static choice_t *choices, *choices_cur;
 static number_t *numbers;
-static node_t **tops, **top_first_group, *nodes, **conflicts_cur, *column_first_group, *column_sentinel, *header, *row_node;
+static node_t **tops, *nodes, **conflicts_cur, *column_first_group, *column_sentinel, *header, *row_node;
 
 int main(void) {
 	int settings;
@@ -255,7 +255,6 @@ int main(void) {
 					}
 					return EXIT_FAILURE;
 				}
-				top_first_group = tops+numbers_n;
 				assign_row_fn = setting_colombians_only || setting_planars_only ? assign_row_with_conflicts:assign_row;
 				if (setting_circular) {
 					if (!dlx_run(1U, set_group_half_circular_options, set_group_circular_options, add_group_option, add_group_half_circular_options, add_group_circular_options, (numbers_n+(range_sup-1U)*intervals_n-1U-range_sup*intervals_n)/2U)) {
@@ -328,7 +327,7 @@ static void mp_print(const char *label, unsigned mp[]) {
 
 static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned), void (*add_group_options_fn1)(unsigned), void (*add_group_options_fn2)(unsigned, unsigned), void (*add_group_options_fn3)(unsigned, unsigned), unsigned offset) {
 	int r;
-	unsigned group_options_n = group_options_n1, hook_options_n, nodes_n, i;
+	unsigned group_options_n = group_options_n1, hook_options_n, i;
 	option_t *options;
 	node_t **conflicts;
 	if (hooks_n != HOOKS_DEF) {
@@ -352,8 +351,7 @@ static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(
 		fflush(stderr);
 		return 0;
 	}
-	nodes_n = columns_n+1U+group_options_n*(order+1U)+hook_options_n;
-	nodes = malloc(sizeof(node_t)*nodes_n);
+	nodes = malloc(sizeof(node_t)*(columns_n+1U+group_options_n*(order+1U)+hook_options_n));
 	if (!nodes) {
 		fprintf(stderr, "Error allocating memory for nodes\n");
 		fflush(stderr);
@@ -505,19 +503,20 @@ static void set_option(option_t *option, unsigned step, unsigned start, unsigned
 }
 
 static void add_row_nodes(option_t *option) {
-	unsigned i;
+	unsigned number_pos, i;
 	if (option->step < range_sup && option->step*order == numbers_n && option->end >= numbers_n) {
 		return;
 	}
-	set_row_node(nodes+option->start, option, row_node+order, tops+option->start);
+	number_pos = option->start;
+	set_row_node(nodes+number_pos, option, row_node+order, tops+number_pos);
 	for (i = 1U; i < order; ++i) {
-		unsigned number_pos = option->start+i*option->step;
+		number_pos += option->step;
 		if (number_pos >= numbers_n) {
 			number_pos -= numbers_n;
 		}
 		set_row_node(nodes+number_pos, option, row_node-1, tops+number_pos);
 	}
-	set_row_node(column_first_group+option->step-range_inf, option, row_node-1, top_first_group+option->step-range_inf);
+	set_row_node(column_first_group+option->step-range_inf, option, row_node-1, tops+numbers_n+option->step-range_inf);
 }
 
 static void set_row_node(node_t *column, option_t *option, node_t *left, node_t **top) {
@@ -660,7 +659,7 @@ static int assign_row_with_conflicts(const node_t *row) {
 	cover_conflicts(row->option);
 	assign_option(row->option);
 	r = dlx_search();
-	while (conflicts_cur != conflicts_bak) {
+	while (conflicts_cur > conflicts_bak) {
 		--conflicts_cur;
 		uncover_row(*conflicts_cur);
 	}
@@ -832,18 +831,17 @@ static void cover_node(node_t *node) {
 
 static void assign_option(const option_t *option) {
 	if (setting_verbose) {
+		unsigned number_pos = option->start;
+		set_number(numbers+number_pos, option->step, option->dimension);
 		if (option->step != HOOK_VAL) {
 			unsigned i;
-			for (i = 0U; i < order; ++i) {
-				unsigned number_pos = option->start+i*option->step;
+			for (i = 1U; i < order; ++i) {
+				number_pos += option->step;
 				if (number_pos >= numbers_n) {
 					number_pos -= numbers_n;
 				}
 				set_number(numbers+number_pos, option->step, option->dimension);
 			}
-		}
-		else {
-			set_number(numbers+option->start, option->step, option->dimension);
 		}
 	}
 }

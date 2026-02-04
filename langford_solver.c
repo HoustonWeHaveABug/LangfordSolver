@@ -319,7 +319,7 @@ static int mp_eq_zero(unsigned mp[]) {
 static void mp_print(const char *label, unsigned mp[]) {
 	printf("%s ", label);
 	if (mp[1]) {
-		printf("%u*%u+", mp[1], UINT_MAX);
+		printf("%u*(%u+1)+", mp[1], UINT_MAX);
 	}
 	printf("%u\n", mp[0]);
 	fflush(stdout);
@@ -637,7 +637,7 @@ static void print_number(const number_t *number) {
 
 static int assign_row_with_conflicts(const node_t *row) {
 	int r;
-	node_t **conflicts_bak = conflicts_cur;
+	node_t **conflicts_bak;
 	if (setting_planars_only) {
 		if (choices_cur > choices) {
 			chain_option(row->option);
@@ -656,6 +656,7 @@ static int assign_row_with_conflicts(const node_t *row) {
 		}
 	}
 	cover_row_columns(row);
+	conflicts_bak = conflicts_cur;
 	cover_conflicts(row->option);
 	assign_option(row->option);
 	r = dlx_search();
@@ -716,48 +717,45 @@ static void cover_column(node_t *column) {
 }
 
 static void cover_conflicts(const option_t *option) {
-	unsigned inf, sup;
-	node_t *column;
 	if (option->step == HOOK_VAL) {
 		return;
 	}
-	inf = option->start;
 	if (setting_colombians_only) {
-		sup = option->end;
 		if (option->step == sentinel) {
-			node_t *column_inf = nodes+inf, *column_sup;
+			node_t *column_inf = nodes+option->start, *column_sup, *column;
 			for (column = header->right; column < column_inf; column = column->right);
-			if (sup < numbers_n) {
-				column_sup = nodes+sup;
+			if (option->end < numbers_n) {
+				column_sup = nodes+option->end;
 			}
 			else {
-				check_conflicts1(column, column_first_group, inf, sup);
+				check_conflicts1(column, column_first_group, option->start, option->end);
 				column = header->right;
-				column_sup = nodes+sup-numbers_n;
+				column_sup = nodes+option->end-numbers_n;
 			}
-			check_conflicts1(column, column_sup, inf, sup);
+			check_conflicts1(column, column_sup, option->start, option->end);
 		}
 		else if (option->step < sentinel) {
+			node_t *column;
 			for (column = header->left; column != header && column > column_sentinel; column = column->left);
 			if (column == column_sentinel) {
 				node_t *row;
 				for (row = column->bottom; row != column; row = row->bottom) {
-					if (range_inside(row->option, inf, sup)) {
+					if (range_inside(row->option, option->start, option->end)) {
 						cover_conflict(row);
 					}
 				}
-				column = column->right;
 			}
 		}
 	}
 	if (setting_planars_only) {
-		unsigned i;
-		node_t *column_inf = nodes+inf;
-		sup = inf+option->step;
+		unsigned inf = option->start, i;
+		node_t *column_inf = nodes+inf, *column;
 		for (column = header->right; column < column_inf; column = column->right);
 		for (i = 1U; i < order; ++i) {
+			unsigned sup;
 			node_t *column_sup;
 			if (inf < numbers_n) {
+				sup = inf+option->step;
 				if (sup < numbers_n) {
 					column_sup = nodes+sup;
 				}
@@ -769,14 +767,13 @@ static void cover_conflicts(const option_t *option) {
 			}
 			else {
 				inf -= numbers_n;
-				sup = inf+option->step;
 				column_inf = nodes+inf;
+				sup = inf+option->step;
 				for (column = header->right; column < column_inf; column = column->right);
 				column_sup = nodes+sup;
 			}
 			check_conflicts2(column, column_sup, option, inf, sup);
 			inf = sup;
-			sup = inf+option->step;
 		}
 	}
 }

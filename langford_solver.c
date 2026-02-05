@@ -100,7 +100,6 @@ static void uncover_column(node_t *);
 static void uncover_row(node_t *);
 static void uncover_node(node_t *);
 static int compare_options(const void *, const void *);
-static int extend_trie(void);
 static void main_free(void);
 
 static int setting_planars_only, setting_colombians_only, setting_first_only, setting_circular, setting_verbose, (*assign_row_fn)(const node_t *);
@@ -229,6 +228,10 @@ int main(void) {
 						return EXIT_FAILURE;
 					}
 					trie_size_max = trie_branching;
+					trie_size = trie_branching;
+					for (i = 0U; i < trie_size; ++i) {
+						trie[i] = 0U;
+					}
 				}
 				if (setting_verbose) {
 					numbers = malloc(sizeof(number_t)*numbers_n);
@@ -581,7 +584,7 @@ static int dlx_search(void) {
 		return r;
 	}
 	if (setting_planars_only) {
-		int unique = choices_cur == choices;
+		int unique = 0;
 		unsigned trie_pos = 0U;
 		choice_t *choice;
 		for (choice = choices->next; choice != choices; choice = choice->next) {
@@ -594,8 +597,20 @@ static int dlx_search(void) {
 					trie[branch_pos] = trie_pos;
 				}
 				else {
-					if (!extend_trie()) {
-						return 0;
+					unsigned i;
+					if (trie_size == trie_size_max) {
+						unsigned *trie_tmp = realloc(trie, sizeof(unsigned)*(trie_size_max+trie_branching));
+						if (!trie_tmp) {
+							fprintf(stderr, "Error reallocating memory for trie\n");
+							fflush(stderr);
+							return 0;
+						}
+						trie = trie_tmp;
+						trie_size_max += trie_branching;
+					}
+					trie_size += trie_branching;
+					for (i = trie_size-trie_branching; i < trie_size; ++i) {
+						trie[i] = 0U;
 					}
 					trie[branch_pos] = trie_size-trie_branching;
 				}
@@ -639,21 +654,7 @@ static int assign_row_with_conflicts(const node_t *row) {
 	int r;
 	node_t **conflicts_bak;
 	if (setting_planars_only) {
-		if (choices_cur > choices) {
-			chain_option(row->option);
-		}
-		else {
-			int r1 = compare_options(row->top->option, row->option), r2 = compare_options(row->option, row->bottom->option);
-			if (r1 == -1 || r2 == -1) {
-				chain_option(row->option);
-			}
-			if (abs(r1) > 1 && r2 == -1) {
-				trie_size = 0U;
-				if (!extend_trie()) {
-					return 0;
-				}
-			}
-		}
+		chain_option(row->option);
 	}
 	cover_row_columns(row);
 	conflicts_bak = conflicts_cur;
@@ -665,7 +666,7 @@ static int assign_row_with_conflicts(const node_t *row) {
 		uncover_row(*conflicts_cur);
 	}
 	uncover_row_columns(row);
-	if (setting_planars_only && choices_cur > choices) {
+	if (setting_planars_only) {
 		choices_cur->next->last = choices_cur->last;
 		choices_cur->last->next = choices_cur->next;
 		--choices_cur;
@@ -897,25 +898,6 @@ static int compare_options(const void *a, const void *b) {
 	}
 	if (option_a->dimension < option_b->dimension) {
 		return -1;
-	}
-	return 1;
-}
-
-static int extend_trie(void) {
-	unsigned i;
-	if (trie_size == trie_size_max) {
-		unsigned *trie_tmp = realloc(trie, sizeof(unsigned)*(trie_size_max+trie_branching));
-		if (!trie_tmp) {
-			fprintf(stderr, "Error reallocating memory for trie\n");
-			fflush(stderr);
-			return 0;
-		}
-		trie = trie_tmp;
-		trie_size_max += trie_branching;
-	}
-	trie_size += trie_branching;
-	for (i = trie_size-trie_branching; i < trie_size; ++i) {
-		trie[i] = 0U;
 	}
 	return 1;
 }

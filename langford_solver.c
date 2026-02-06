@@ -25,14 +25,12 @@ typedef struct {
 }
 option_t;
 
-typedef struct choice_s choice_t;
-
-struct choice_s {
+typedef struct {
 	unsigned step;
 	unsigned start;
-	choice_t *last;
-	choice_t *next;
-};
+	unsigned pos;
+}
+choice_t;
 
 typedef struct {
 	unsigned val;
@@ -73,16 +71,15 @@ static void add_group_half_options(unsigned, unsigned);
 static unsigned set_group_half_options(unsigned);
 static void add_options(unsigned, unsigned, unsigned);
 static void set_option(option_t *, unsigned, unsigned, unsigned);
+static int compare_options(const void *, const void *);
 static void add_row_nodes(option_t *);
 static void set_row_node(node_t *, option_t *, node_t *, node_t **);
 static void link_left(node_t *, node_t *);
 static void link_top(node_t *, node_t *);
 static int dlx_search(void);
-static void add_solution(void);
-static void print_number(const number_t *);
 static int assign_row_with_conflicts(const node_t *);
-static void chain_option(const option_t *);
-static void set_choice(choice_t *, unsigned, unsigned, choice_t *, choice_t *);
+static void add_choice(const option_t *);
+static void set_choice(choice_t *, unsigned, unsigned, unsigned);
 static int assign_row(const node_t *);
 static void cover_row_columns(const node_t *);
 static void cover_column(node_t *);
@@ -99,13 +96,16 @@ static void uncover_row_columns(const node_t *);
 static void uncover_column(node_t *);
 static void uncover_row(node_t *);
 static void uncover_node(node_t *);
-static int compare_options(const void *, const void *);
+static int compare_choices1(const void *, const void *);
+static int compare_choices2(const void *, const void *);
+static void add_solution(void);
+static void print_number(const number_t *);
 static void main_free(void);
 
 static int setting_planars_only, setting_colombians_only, setting_first_only, setting_circular, setting_verbose, (*assign_row_fn)(const node_t *);
-static unsigned order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, dimensions_n, cost[MP_SIZE], solutions_n[MP_SIZE], trie_branching, *trie, trie_size_max, trie_size;
-static option_t filler, *options_cur;
-static choice_t *choices, *choices_cur;
+static unsigned order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, dimensions_n, cost[MP_SIZE], solutions_n[MP_SIZE], choices_cur, trie_branching, *trie, trie_size;
+static option_t *options_cur;
+static choice_t *choices;
 static number_t *numbers;
 static node_t **tops, *nodes, **conflicts_cur, *column_first_group, *column_sentinel, *header, *row_node;
 
@@ -209,16 +209,14 @@ int main(void) {
 				}
 			}
 			if (i < p) {
-				set_option(&filler, HOOK_VAL, numbers_n, 0U);
 				if (setting_planars_only) {
-					choices = malloc(sizeof(choice_t)*(groups_n+hooks_n+1U));
+					choices = malloc(sizeof(choice_t)*(groups_n+hooks_n));
 					if (!choices) {
 						fprintf(stderr, "Error allocating memory for choices\n");
 						fflush(stderr);
 						return EXIT_FAILURE;
 					}
-					set_choice(choices, HOOK_VAL, numbers_n, choices, choices);
-					choices_cur = choices;
+					choices_cur = 0U;
 					trie_branching = groups_n+1U;
 					trie = malloc(sizeof(unsigned)*trie_branching);
 					if (!trie) {
@@ -227,7 +225,6 @@ int main(void) {
 						free(choices);
 						return EXIT_FAILURE;
 					}
-					trie_size_max = trie_branching;
 					trie_size = trie_branching;
 					for (i = 0U; i < trie_size; ++i) {
 						trie[i] = 0U;
@@ -432,7 +429,6 @@ static unsigned set_group_options_fn2_fn3(unsigned (*set_group_options_fn2)(unsi
 
 static void set_column(node_t *column, node_t *left) {
 	column->rows_n = 0U;
-	column->option = &filler;
 	link_left(column, left);
 }
 
@@ -503,6 +499,26 @@ static void set_option(option_t *option, unsigned step, unsigned start, unsigned
 	option->start = start;
 	option->end = start+step*intervals_n;
 	option->dimension = dimension;
+}
+
+static int compare_options(const void *a, const void *b) {
+	const option_t *option_a = (const option_t *)a, *option_b = (const option_t *)b;
+	if (option_a->step < option_b->step) {
+		return 1;
+	}
+	if (option_a->step > option_b->step) {
+		return -1;
+	}
+	if (option_a->start < option_b->start) {
+		return -1;
+	}
+	if (option_a->start > option_b->start) {
+		return 1;
+	}
+	if (option_a->dimension < option_b->dimension) {
+		return -1;
+	}
+	return 1;
 }
 
 static void add_row_nodes(option_t *option) {
@@ -585,32 +601,28 @@ static int dlx_search(void) {
 	}
 	if (setting_planars_only) {
 		int unique = 0;
-		unsigned trie_pos = 0U;
-		choice_t *choice;
-		for (choice = choices->next; choice != choices; choice = choice->next) {
+		unsigned trie_pos = 0U, i;
+		qsort(choices, (size_t)choices_cur, sizeof(choice_t), compare_choices1);
+		for (i = 0U; i < choices_cur; ++i) {
 			unsigned branch_pos = trie_pos;
-			if (choice->step != HOOK_VAL) {
-				branch_pos += choice->step-range_inf+1U;
+			if (choices[i].step != HOOK_VAL) {
+				branch_pos += choices[i].step-range_inf+1U;
 			}
 			if (!trie[branch_pos]) {
-				if (choice->next == choices) {
+				if (i+1U == choices_cur) {
 					trie[branch_pos] = trie_pos;
 				}
 				else {
-					unsigned i;
-					if (trie_size == trie_size_max) {
-						unsigned *trie_tmp = realloc(trie, sizeof(unsigned)*(trie_size_max+trie_branching));
-						if (!trie_tmp) {
-							fprintf(stderr, "Error reallocating memory for trie\n");
-							fflush(stderr);
-							return 0;
-						}
-						trie = trie_tmp;
-						trie_size_max += trie_branching;
+					unsigned *trie_tmp = realloc(trie, sizeof(unsigned)*(trie_size+trie_branching)), j;
+					if (!trie_tmp) {
+						fprintf(stderr, "Error reallocating memory for trie\n");
+						fflush(stderr);
+						return 0;
 					}
+					trie = trie_tmp;
 					trie_size += trie_branching;
-					for (i = trie_size-trie_branching; i < trie_size; ++i) {
-						trie[i] = 0U;
+					for (j = trie_size-trie_branching; j < trie_size; ++j) {
+						trie[j] = 0U;
 					}
 					trie[branch_pos] = trie_size-trie_branching;
 				}
@@ -618,6 +630,7 @@ static int dlx_search(void) {
 			}
 			trie_pos = trie[branch_pos];
 		}
+		qsort(choices, (size_t)choices_cur, sizeof(choice_t), compare_choices2);
 		if (unique) {
 			add_solution();
 		}
@@ -628,36 +641,13 @@ static int dlx_search(void) {
 	return 1;
 }
 
-static void add_solution(void) {
-	mp_inc(solutions_n);
-	if (setting_verbose) {
-		unsigned i;
-		mp_print("Cost", cost);
-		print_number(numbers);
-		for (i = 1U; i < numbers_n; ++i) {
-			putchar(' ');
-			print_number(numbers+i);
-		}
-		puts("");
-		fflush(stdout);
-	}
-}
-
-static void print_number(const number_t *number) {
-	printf("%u", number->val);
-	if (dimensions_n > DIMENSIONS_MIN) {
-		printf("-%u", number->dimension);
-	}
-}
-
 static int assign_row_with_conflicts(const node_t *row) {
 	int r;
-	node_t **conflicts_bak;
+	node_t **conflicts_bak = conflicts_cur;
 	if (setting_planars_only) {
-		chain_option(row->option);
+		add_choice(row->option);
 	}
 	cover_row_columns(row);
-	conflicts_bak = conflicts_cur;
 	cover_conflicts(row->option);
 	assign_option(row->option);
 	r = dlx_search();
@@ -667,27 +657,20 @@ static int assign_row_with_conflicts(const node_t *row) {
 	}
 	uncover_row_columns(row);
 	if (setting_planars_only) {
-		choices_cur->next->last = choices_cur->last;
-		choices_cur->last->next = choices_cur->next;
 		--choices_cur;
 	}
 	return r;
 }
 
-static void chain_option(const option_t *option) {
-	choice_t *choice;
+static void add_choice(const option_t *option) {
+	set_choice(choices+choices_cur, option->step, option->start, choices_cur);
 	++choices_cur;
-	for (choice = choices->next; choice != choices && choice->start > option->start; choice = choice->next);
-	choice->last->next = choices_cur;
-	set_choice(choices_cur, option->step, option->start, choice->last, choice);
-	choice->last = choices_cur;
 }
 
-static void set_choice(choice_t *choice, unsigned step, unsigned start, choice_t *last, choice_t *next) {
+static void set_choice(choice_t *choice, unsigned step, unsigned start, unsigned pos) {
 	choice->step = step;
 	choice->start = start;
-	choice->last = last;
-	choice->next = next;
+	choice->pos = pos;
 }
 
 static int assign_row(const node_t *row) {
@@ -882,24 +865,42 @@ static void uncover_node(node_t *node) {
 	++node->column->rows_n;
 }
 
-static int compare_options(const void *a, const void *b) {
-	const option_t *option_a = (const option_t *)a, *option_b = (const option_t *)b;
-	if (option_a->step < option_b->step) {
-		return 3;
-	}
-	if (option_a->step > option_b->step) {
-		return -3;
-	}
-	if (option_a->start < option_b->start) {
-		return -2;
-	}
-	if (option_a->start > option_b->start) {
-		return 2;
-	}
-	if (option_a->dimension < option_b->dimension) {
+static int compare_choices1(const void *a, const void *b) {
+	const choice_t *choice_a = (const choice_t *)a, *choice_b = (const choice_t *)b;
+	if (choice_a->start < choice_b->start) {
 		return -1;
 	}
 	return 1;
+}
+
+static int compare_choices2(const void *a, const void *b) {
+	const choice_t *choice_a = (const choice_t *)a, *choice_b = (const choice_t *)b;
+	if (choice_a->pos < choice_b->pos) {
+		return -1;
+	}
+	return 1;
+}
+
+static void add_solution(void) {
+	mp_inc(solutions_n);
+	if (setting_verbose) {
+		unsigned i;
+		mp_print("Cost", cost);
+		print_number(numbers);
+		for (i = 1U; i < numbers_n; ++i) {
+			putchar(' ');
+			print_number(numbers+i);
+		}
+		puts("");
+		fflush(stdout);
+	}
+}
+
+static void print_number(const number_t *number) {
+	printf("%u", number->val);
+	if (dimensions_n > DIMENSIONS_MIN) {
+		printf("-%u", number->dimension);
+	}
 }
 
 static void main_free(void) {

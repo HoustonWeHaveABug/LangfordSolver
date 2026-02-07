@@ -3,7 +3,7 @@ Generalized Langford problem solver for given range and order
 
 ## langford_solver
 
-Parameters read on standard input: order range_inf range_sup \[ hooks_n \] \[ settings \] \[ sentinel \] \[ dimensions_n \]
+Parameters read on standard input: order range_inf range_sup \[ hooks_n \] \[ settings \] \[ sentinel \] \[ plans_n \]
 
 - order (2 for pairs, 3 for triplets, etc...)
 - range_inf: range inferior bound (>= 1)
@@ -11,7 +11,7 @@ Parameters read on standard input: order range_inf range_sup \[ hooks_n \] \[ se
 - hooks_n: number of hooks (= 0 search for perfect solutions only, > 0 otherwise)
 - settings = sum of option settings (colombian solutions only = 1, planar solutions only = 2, first solution only = 4, circular mode = 8, verbose mode = 16)
 - sentinel: argument for the colombian variant
-- dimensions_n: number of dimensions, argument for the planar variant
+- plans_n: number of dimensions, argument for the planar variant
 
 Langford standard problem L(s, n) is solved using parameters (s, 2, n+1, 0, 0).
 
@@ -22,9 +22,13 @@ for existence of sequences are performed as presented in [this paper](https://pd
 
 At the end of execution it will print the final cost (size of the search tree) and the total number of solutions found.
 
-## langford_\*\.sh
+## langford_solver_count_planars.sh
 
-Shell scripts that can be used to run the solver for each valid length of the Langford sequence, starting from the lowest until a given superior bound.
+Bash script that can be used to count the number of planar solutions from the output provided by the solver (launched with option settings planar solutions only and verbose mode).
+
+## langford_pairs.sh / langford_triplets.sh
+
+Bash scripts that can be used to run the solver for each valid length of the Langford sequence, starting from the lowest until a given superior bound.
 
 ## Results (langford_\*\.txt files)
 

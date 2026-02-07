@@ -1,0 +1,4 @@
+Order 4, Range [2-24], Verbose.
+Runtime 1236s
+Final cost 1029138641
+Solutions 0

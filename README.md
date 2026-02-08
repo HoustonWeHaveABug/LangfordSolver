@@ -24,14 +24,14 @@ At the end of execution it will print the final cost (size of the search tree) a
 
 ## langford_solver_count_planars.sh
 
-Bash script that can be used to count the number of planar solutions from the output provided by the solver (launched with option settings planar solutions only and verbose mode).
+The solver gives the expected number of solutions for all variants excepted the planar one because it counts all the different combinations of line drawings as a solution.
+
+This bash script can be used to remove the duplicate solutions from the output provided by the solver, launched with option settings: planar solutions only, verbose mode.
 
 ## langford_pairs.sh / langford_triplets.sh
 
-Bash scripts that can be used to run the solver for each valid length of the Langford sequence, starting from the lowest until a given superior bound.
+Bash scripts that can be used to run the solver for each valid length of the Langford sequence, given an inferior bound and a maximum superior bound.
 
-## Results (langford_\*\.txt files)
+## langford_\*\.txt files
 
-Environment: Linux 5.4.12-arch1-1
-
-CPU: Intel Core i5-4430 3.0 GHz - One core used
+Solver outputs for various orders and ranges.

@@ -3,7 +3,8 @@
 #include <time.h>
 #include <limits.h>
 
-#define MP_SIZE 2
+#define MP_SIZE 4
+#define P_MUL 10U
 #define ORDER_MIN 2U
 #define FLAG_COLOMBIANS_ONLY 1
 #define FLAG_PLANARS_ONLY 2
@@ -42,8 +43,8 @@ static void usage(void);
 static int dlx_run(unsigned, unsigned (*)(unsigned), unsigned (*)(unsigned), void (*)(unsigned), unsigned);
 static void mp_new(unsigned []);
 static void mp_inc(unsigned []);
-static int mp_eq_zero(unsigned []);
-static void mp_print(const char *, unsigned []);
+static int mp_eq_zero(const unsigned []);
+static void mp_print(const char *, const unsigned []);
 static unsigned set_group_options_fn2_fn3(unsigned (*)(unsigned), unsigned (*)(unsigned));
 static void set_column(node_t *, node_t *);
 static void add_group_options_fn2_fn3(unsigned (*)(unsigned), unsigned (*)(unsigned));
@@ -60,9 +61,9 @@ static void add_row_nodes(option_t *);
 static void set_row_node(node_t *, option_t *, node_t *, node_t **);
 static void link_left(node_t *, node_t *);
 static void link_top(node_t *, node_t *);
-static int dlx_search(void);
-static int assign_row_with_conflicts(const node_t *);
-static int assign_row(const node_t *);
+static void dlx_search(void);
+static void assign_row_with_conflicts(const node_t *);
+static void assign_row(const node_t *);
 static void cover_row_columns(const node_t *);
 static void cover_column(node_t *);
 static void cover_conflicts(const option_t *);
@@ -81,8 +82,9 @@ static void uncover_node(node_t *);
 static void print_number(const number_t *);
 static void main_free(void);
 
-static int setting_planars_only, setting_colombians_only, setting_first_only, setting_circular, setting_verbose, (*assign_row_fn)(const node_t *);
-static unsigned order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, plans_n, cost[MP_SIZE], solutions_n[MP_SIZE];
+static int setting_planars_only, setting_colombians_only, setting_first_only, setting_circular, setting_verbose, p_len;
+static unsigned order, intervals_n, range_inf, range_sup, hooks_n, numbers_n, columns_n, sentinel, plans_n, p_max, cost[MP_SIZE], solutions_n[MP_SIZE];
+static void (*assign_row_fn)(const node_t *);
 static option_t *options_cur;
 static number_t *numbers;
 static node_t **tops, *nodes, **conflicts_cur, *column_first_group, *column_sentinel, *header, *row_node;
@@ -167,6 +169,8 @@ int main(void) {
 	}
 	puts(".");
 	fflush(stdout);
+	for (p_max = 1U, p_len = 0; p_max <= UINT_MAX/P_MUL; p_max *= P_MUL, ++p_len);
+	--p_max;
 	mp_new(cost);
 	mp_new(solutions_n);
 	time0 = (unsigned)time(NULL);
@@ -247,35 +251,39 @@ static void usage(void) {
 }
 
 static void mp_new(unsigned mp[]) {
-	mp[0] = 0U;
-	mp[1] = 0U;
+	int i;
+	for (i = 0; i < MP_SIZE; ++i) {
+		mp[i] = 0U;
+	}
 }
 
 static void mp_inc(unsigned mp[]) {
-	if (mp[0] < UINT_MAX) {
-		++mp[0];
+	int i;
+	for (i = 0; i < MP_SIZE && mp[i] == p_max; ++i) {
+		mp[i] = 0U;
 	}
-	else {
-		mp[0] = 0U;
-		++mp[1];
+	if (i < MP_SIZE) {
+		++mp[i];
 	}
 }
 
-static int mp_eq_zero(unsigned mp[]) {
-	return !mp[1] && !mp[0];
+static int mp_eq_zero(const unsigned mp[]) {
+	int i;
+	for (i = 0; i < MP_SIZE && !mp[i]; ++i);
+	return i == MP_SIZE;
 }
 
-static void mp_print(const char *label, unsigned mp[]) {
-	printf("%s ", label);
-	if (mp[1]) {
-		printf("%u*(%u+1)+", mp[1], UINT_MAX);
+static void mp_print(const char *label, const unsigned mp[]) {
+	int i;
+	for (i = MP_SIZE-1; i && !mp[i]; --i);
+	printf("%s %u", label, mp[i]);
+	for (--i; i+1; --i) {
+		printf(",%0*u", p_len, mp[i]);
 	}
-	printf("%u\n", mp[0]);
-	fflush(stdout);
+	puts("");
 }
 
 static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned), void (*add_group_options_fn1)(unsigned), unsigned offset) {
-	int r;
 	unsigned group_options_n = group_options_n1, hook_options_n, i;
 	option_t *options;
 	node_t **conflicts;
@@ -364,13 +372,13 @@ static int dlx_run(unsigned group_options_n1, unsigned (*set_group_options_fn2)(
 	for (i = 0U; i < columns_n; ++i) {
 		link_top(nodes+i, tops[i]);
 	}
-	r = dlx_search();
+	dlx_search();
 	if (setting_colombians_only || setting_planars_only) {
 		free(conflicts);
 	}
 	free(nodes);
 	free(options);
-	return r;
+	return 1;
 }
 
 static unsigned set_group_options_fn2_fn3(unsigned (*set_group_options_fn2)(unsigned), unsigned (*set_group_options_fn3)(unsigned)) {
@@ -506,23 +514,21 @@ static void link_top(node_t *node, node_t *top) {
 	top->bottom = node;
 }
 
-static int dlx_search(void) {
+static void dlx_search(void) {
 	mp_inc(cost);
 	if (header->right != header) {
-		int r;
 		node_t *column_min = header->right, *column, *bottom;
 		if (!column_min->rows_n) {
-			return 1;
+			return;
 		}
 		for (column = column_min->right; column != header; column = column->right) {
 			if (column->rows_n < column_min->rows_n) {
 				if (!column->rows_n) {
-					return 1;
+					return;
 				}
 				column_min = column;
 			}
 		}
-		r = 1;
 		cover_column(column_min);
 		if (setting_first_only) {
 			unsigned half_rows_min = column_min->rows_n/2U+column_min->rows_n%2U, i;
@@ -530,23 +536,23 @@ static int dlx_search(void) {
 			for (i = 1U, top = column_min->bottom; i < half_rows_min; ++i, top = top->bottom);
 			bottom = top->bottom;
 			if (column_min->rows_n%2U) {
-				r = assign_row_fn(top);
+				assign_row_fn(top);
 				top = top->top;
 			}
-			for (; top != column_min && r && mp_eq_zero(solutions_n); top = top->top, bottom = bottom->bottom) {
-				r = assign_row_fn(top);
-				if (r && mp_eq_zero(solutions_n)) {
-					r = assign_row_fn(bottom);
+			for (; top != column_min && mp_eq_zero(solutions_n); top = top->top, bottom = bottom->bottom) {
+				assign_row_fn(top);
+				if (mp_eq_zero(solutions_n)) {
+					assign_row_fn(bottom);
 				}
 			}
 		}
 		else {
-			for (bottom = column_min->bottom; bottom != column_min && r; bottom = bottom->bottom) {
-				r = assign_row_fn(bottom);
+			for (bottom = column_min->bottom; bottom != column_min; bottom = bottom->bottom) {
+				assign_row_fn(bottom);
 			}
 		}
 		uncover_column(column_min);
-		return r;
+		return;
 	}
 	mp_inc(solutions_n);
 	if (setting_verbose) {
@@ -560,30 +566,26 @@ static int dlx_search(void) {
 		puts("");
 		fflush(stdout);
 	}
-	return 1;
 }
 
-static int assign_row_with_conflicts(const node_t *row) {
-	int r;
+static void assign_row_with_conflicts(const node_t *row) {
 	node_t **conflicts_bak = conflicts_cur;
 	cover_row_columns(row);
 	cover_conflicts(row->option);
 	assign_option(row->option);
-	r = dlx_search();
+	dlx_search();
 	while (conflicts_cur > conflicts_bak) {
 		--conflicts_cur;
 		uncover_row(*conflicts_cur);
 	}
 	uncover_row_columns(row);
-	return r;
 }
 
-static int assign_row(const node_t *row) {
+static void assign_row(const node_t *row) {
 	cover_row_columns(row);
 	assign_option(row->option);
 	dlx_search();
 	uncover_row_columns(row);
-	return 1;
 }
 
 static void cover_row_columns(const node_t *row) {

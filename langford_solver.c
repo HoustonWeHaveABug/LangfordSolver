@@ -3,7 +3,7 @@
 #include <time.h>
 #include <limits.h>
 
-#define MP_SIZE 4
+#define MP_SIZE 2
 #define P_MUL 10U
 #define ORDER_MIN 2U
 #define FLAG_COLOMBIANS_ONLY 1
@@ -52,8 +52,8 @@ static void add_group_option(unsigned);
 static unsigned set_group_half_circular_options(unsigned);
 static unsigned set_group_circular_options(unsigned);
 static void add_group_strict_half_options(unsigned);
-static unsigned set_group_all_options(unsigned);
 static unsigned set_group_half_options(unsigned);
+static unsigned set_group_all_options(unsigned);
 static void add_options(unsigned, unsigned, unsigned);
 static void set_option(unsigned, unsigned, unsigned);
 static int compare_options(const void *, const void *);
@@ -175,22 +175,22 @@ int main(void) {
 	mp_new(solutions_n);
 	time0 = (unsigned)time(NULL);
 	if (range_sup*intervals_n < numbers_n) {
-		unsigned p, k;
-		for (p = ORDER_MIN; p < order && order%p; ++p);
-		k = (range_sup/p-(range_inf-1U)/p)%p;
-		if (!k || (p-k)*(order-1U) <= hooks_n) {
-			unsigned j = (range_inf-1U)%p, e, i;
-			for (e = p; order%e == 0U; e *= p);
-			for (i = 0U; i < p; ++i) {
-				unsigned val = k*p+i;
+		unsigned prime, k;
+		for (prime = ORDER_MIN; prime < order && order%prime; ++prime);
+		k = (range_sup/prime-(range_inf-1U)/prime)%prime;
+		if (!k || (prime-k)*(order-1U) <= hooks_n) {
+			unsigned j = (range_inf-1U)%prime, power, i;
+			for (power = prime; order%power == 0U; power *= prime);
+			for (i = 0U; i < prime; ++i) {
+				unsigned val = k*prime+i;
 				if (val < j) {
-					val += e;
+					val += power;
 				}
-				if (val-j == groups_n%e) {
+				if (val-j == groups_n%power) {
 					break;
 				}
 			}
-			if (i < p) {
+			if (i < prime) {
 				if (setting_verbose) {
 					numbers = malloc(sizeof(number_t)*numbers_n);
 					if (!numbers) {
@@ -421,7 +421,8 @@ static void add_group_option(unsigned offset) {
 }
 
 static unsigned set_group_half_circular_options(unsigned step) {
-	return (numbers_n-step*0U)/2U+(numbers_n-step*0U)%2U;
+	unsigned val = set_group_circular_options(step);
+	return val/2U+val%2U;
 }
 
 static unsigned set_group_circular_options(unsigned step) {
@@ -429,15 +430,16 @@ static unsigned set_group_circular_options(unsigned step) {
 }
 
 static void add_group_strict_half_options(unsigned offset) {
-	add_options((numbers_n-range_sup*intervals_n-offset)/2U, range_sup, 1U);
+	add_options((set_group_all_options(range_sup)-offset)/2U, range_sup, 1U);
+}
+
+static unsigned set_group_half_options(unsigned step) {
+	unsigned val = set_group_all_options(step);
+	return val/2U+val%2U;
 }
 
 static unsigned set_group_all_options(unsigned step) {
 	return numbers_n-step*intervals_n;
-}
-
-static unsigned set_group_half_options(unsigned step) {
-	return (numbers_n-step*intervals_n)/2U+(numbers_n-step*intervals_n)%2U;
 }
 
 static void add_options(unsigned options_n, unsigned step, unsigned plans_max) {

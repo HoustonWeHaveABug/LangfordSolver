@@ -22,7 +22,7 @@ for existence of sequences are performed as presented in [this paper](https://pd
 
 At the end of execution it will print the final cost (size of the search tree) and the total number of solutions found.
 
-## langford_solver_count_planars.sh
+## langford_count_planars.sh
 
 The solver gives the expected number of solutions for all variants excepted the planar one because it counts all the different combinations of line drawings as a solution.
 
